@@ -101,6 +101,9 @@
       </div>
     </div>
 
+    <!-- Insights -->
+    <InsightsSection v-if="rs.activeDays > 0" :hourly="hourly" :bias="bias" :patterns="patterns" />
+
     <!-- Reflections -->
     <div class="rp-section" v-if="reflections.length > 0">
       <div class="rp-sec-head">💭 本月反思 ({{ reflections.length }})</div>
@@ -123,9 +126,10 @@ import { useEventStore } from '../stores/events'
 import { useTaskStore } from '../stores/tasks'
 import { useUiStore } from '../stores/ui'
 import { dateKey, monthStart, monthEnd, WD } from '../utils/time'
-import { computeRangeStats, reflectionsForRange, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
+import { computeRangeStats, computeHourlyProfile, computeDurationBias, detectPatterns, reflectionsForRange, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
 import SparkLine from './SparkLine.vue'
 import ScoreHeatmap from './ScoreHeatmap.vue'
+import InsightsSection from './InsightsSection.vue'
 
 const eventStore = useEventStore()
 const taskStore = useTaskStore()
@@ -167,6 +171,10 @@ const taskStats = computed(() => {
   const done = tasks.filter(t => t.done).length
   return { total: tasks.length, done, rate: tasks.length ? Math.round(done / tasks.length * 100) : 0 }
 })
+
+const hourly = computed(() => computeHourlyProfile(rs.value.dailyStats))
+const bias = computed(() => computeDurationBias(rs.value.dailyStats))
+const patterns = computed(() => detectPatterns(rs.value, rs.value.dailyStats))
 
 const reflections = computed(() => reflectionsForRange(mStart.value, mEnd.value))
 
