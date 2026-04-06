@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(vue|js\\)$\")",
+      "Bash(find . -name \"*.vue\" -type f -exec grep -l \"reflections\\\\|reflection\" {} \\\\;)",
+      "Bash(python -c ':*)"
+    ]
+  }
+}
