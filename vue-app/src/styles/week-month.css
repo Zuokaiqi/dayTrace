@@ -1,0 +1,125 @@
+/* ═══ WEEK VIEW ═══ */
+.week-view { height: calc(100vh - var(--topbar-h) - 1px); overflow-y: auto; background: var(--bg); }
+.week-frozen-header { position: sticky; top: 0; z-index: 12; background: var(--bg); }
+.week-header {
+  display: grid; grid-template-columns: 56px repeat(var(--week-cols, 7), 1fr);
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.week-header .wh-gutter { padding: 10px; }
+.week-header .wh-day {
+  padding: 8px 4px; text-align: center; font-size: 12px; font-weight: 500;
+  color: var(--text-light); border-left: 1px solid var(--border-light); cursor: pointer;
+}
+.week-header .wh-day .wh-num {
+  font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.3;
+  margin-top: 2px; display: inline-block;
+}
+.week-header .wh-day.today { color: var(--blue); }
+.week-header .wh-day.today .wh-num {
+  background: var(--blue); color: #fff; border-radius: 50%;
+  width: 34px; height: 34px; display: inline-flex; align-items: center;
+  justify-content: center; font-size: 15px;
+}
+.week-grid {
+  display: grid; grid-template-columns: 56px repeat(var(--week-cols, 7), 1fr);
+  position: relative;
+}
+.week-col {
+  position: relative; border-left: 1px solid var(--border-light);
+  cursor: default; min-height: 60px;
+}
+.week-col .grid-line { height: 40px; border-top: none; }
+.week-col .grid-line.hour { border-top: 1px solid var(--border-light); }
+.week-col .grid-line.hour:first-child { border-top: none; }
+.week-col .ev { padding: 2px 4px; font-size: 11px; }
+.week-col .ev .ev-title { font-size: 11px; white-space: normal; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.week-col .ev .ev-time { font-size: 10px; }
+
+/* Week DDL todo row */
+.week-todo-row {
+  display: grid; grid-template-columns: 56px repeat(var(--week-cols, 7), 1fr);
+  border-bottom: 1px solid var(--border-light); background: var(--bg);
+}
+.week-todo-cell {
+  padding: 4px; border-left: 1px solid var(--border-light);
+  display: flex; flex-direction: column; gap: 2px; min-height: 24px; cursor: pointer;
+}
+.week-todo-cell:hover { background: var(--bg-hover); }
+.ddl-todo-item.compact {
+  padding: 2px 6px; font-size: 11px; gap: 4px; border-radius: 3px;
+}
+.ddl-todo-item.compact .ddl-todo-cb { width: 13px; height: 13px; }
+.ddl-todo-item.compact .ddl-todo-dot { width: 5px; height: 5px; }
+.ddl-todo-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--radius);
+  font-size: 13px; color: var(--text); cursor: pointer;
+  transition: var(--transition); background: var(--bg-hover); user-select: none;
+}
+.ddl-todo-item.done { opacity: .5; }
+.ddl-todo-item.done .ddl-todo-text { text-decoration: line-through; color: var(--text-light); }
+.ddl-todo-cb { width: 15px; height: 15px; border-radius: 4px; cursor: pointer; flex-shrink: 0; accent-color: var(--blue); margin: 0; }
+.ddl-todo-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ddl-todo-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; line-height: 1.3; min-width: 0; flex: 1; }
+
+/* ═══ MONTH VIEW ═══ */
+.month-view { height: calc(100vh - var(--topbar-h) - 1px); display: flex; flex-direction: column; background: var(--bg); }
+.month-header {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.month-header div {
+  padding: 10px; text-align: center; font-size: 12px; font-weight: 600;
+  color: var(--text-light); text-transform: uppercase; letter-spacing: .04em;
+}
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); flex: 1; grid-auto-rows: 1fr; }
+.month-cell {
+  border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+  padding: 6px; min-height: 100px; cursor: pointer; transition: var(--transition); position: relative;
+}
+.month-cell:hover { background: var(--bg-hover); }
+.month-cell.other { opacity: .3; }
+.month-cell.today { background: var(--blue-bg); }
+.month-cell.today .mc-num {
+  background: var(--blue); color: #fff; border-radius: 50%;
+  width: 26px; height: 26px; display: inline-flex; align-items: center;
+  justify-content: center; font-weight: 600;
+}
+.mc-num { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: inline-block; padding: 2px; font-weight: 500; }
+.mc-ev {
+  font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; font-weight: 500;
+}
+.mc-ev.actual-ev { background: var(--green-bg); color: var(--green); }
+.mc-ev.unplanned-ev { background: var(--orange-bg); color: var(--orange); }
+.mc-ev.delayed-ev { background: var(--red-bg); color: var(--red); }
+.mc-more { font-size: 10px; color: var(--text-light); padding: 2px 6px; font-weight: 500; }
+
+/* DDL drag drop target highlight */
+.ddl-drop-target {
+  background: var(--blue-bg) !important;
+  box-shadow: inset 0 0 0 2px var(--blue);
+  border-radius: var(--radius);
+}
+.ddl-todo-item[draggable="true"] { cursor: grab; }
+.ddl-todo-item[draggable="true"]:active { cursor: grabbing; }
+
+/* DDL add button (week: bottom of cell, day: right side) */
+.ddl-add-btn {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 22px; margin-top: 2px;
+  border: 1.5px dashed transparent; border-radius: 3px;
+  color: var(--text-light); font-size: 13px; font-weight: 300;
+  cursor: pointer; transition: var(--transition); opacity: 0;
+}
+.week-todo-cell:hover .ddl-add-btn,
+.ddl-todo-bar:hover .ddl-add-btn { opacity: 1; }
+.ddl-add-btn:hover {
+  border-color: var(--blue); background: var(--blue-bg);
+  color: var(--blue); font-weight: 600;
+}
+/* Day view: horizontal layout, right side */
+.ddl-add-btn-h {
+  min-height: auto; margin-top: 0; padding: 4px 16px;
+  min-width: 36px; flex-shrink: 0;
+}

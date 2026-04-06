@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+vue-app/dist/
+
+# Environment & secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+server/avatars/
+
+# Logs
+*.log
+
+# Old version (deprecated)
+old_version/
