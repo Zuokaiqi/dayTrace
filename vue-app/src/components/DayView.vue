@@ -146,12 +146,13 @@ function onGridDrop(colType, e) {
   const endMin = Math.min(snapMin + 60, EH * 60)
   if (snapMin < SH * 60 || snapMin >= endMin) { endTaskDrag(); return }
 
+  // Tasks from left panel / DDL bar always create plan events
   undoStore.pushUndo()
   eventStore.addEvent({
     title: taskDrag.title, tag: taskDrag.tag, date: dk.value,
     repeat: null,
-    plan: colType === 'plan' ? { start: m2t(snapMin), end: m2t(endMin) } : null,
-    actual: colType === 'actual' ? { start: m2t(snapMin), end: m2t(endMin), note: '' } : null
+    plan: { start: m2t(snapMin), end: m2t(endMin) },
+    actual: null
   })
   endTaskDrag()
 }
