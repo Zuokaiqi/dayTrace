@@ -98,6 +98,9 @@
           </div>
         </div>
       </div>
+
+      <!-- Insights -->
+      <InsightsSection v-if="rs.activeDays > 0" :hourly="hourly" :bias="bias" :patterns="patterns" />
     </template>
 
     <div v-else-if="startKey && endKey" class="rp-section">
@@ -113,9 +116,10 @@
 import { ref, computed } from 'vue'
 import { useEventStore } from '../stores/events'
 import { dateKey } from '../utils/time'
-import { computeRangeStats, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
+import { computeRangeStats, computeHourlyProfile, computeDurationBias, detectPatterns, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
 import SparkLine from './SparkLine.vue'
 import DatePicker from './DatePicker.vue'
+import InsightsSection from './InsightsSection.vue'
 
 const eventStore = useEventStore()
 const tagColors = TAG_COLORS
@@ -170,6 +174,10 @@ const rs = computed(() => {
   if (!valid.value) return { activeDays: 0, avgScore: 0, scoreColor: 'var(--red)', totals: { planned: 0, executed: 0, unplanned: 0 }, tagTotals: {}, tagGrandTotal: 1 }
   return computeRangeStats(eventStore, startDate.value, endDate.value)
 })
+
+const hourly = computed(() => rs.value.dailyStats ? computeHourlyProfile(rs.value.dailyStats) : [])
+const bias = computed(() => rs.value.dailyStats ? computeDurationBias(rs.value.dailyStats) : { byTag: {}, overall: { count: 0 } })
+const patterns = computed(() => rs.value.dailyStats ? detectPatterns(rs.value, rs.value.dailyStats) : [])
 
 const trendData = computed(() => rs.value.dailyStats?.map(s => s.score) || [])
 const trendLabels = computed(() => {

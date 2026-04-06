@@ -220,3 +220,79 @@
 .bw-card-val { font-weight: 600; font-variant-numeric: tabular-nums; }
 .bw-card.best .bw-card-val { color: var(--green); }
 .bw-card.worst .bw-card-val { color: var(--red); }
+
+/* ═══ Hourly Profile Chart ═══ */
+.hourly-chart {
+  display: flex; gap: 2px; align-items: flex-end; height: 64px;
+  margin: 8px 0 6px; padding: 0 2px;
+}
+.hourly-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  min-width: 0;
+}
+.hourly-bar-wrap {
+  width: 100%; height: 48px; display: flex; align-items: flex-end;
+  justify-content: center;
+}
+.hourly-bar {
+  width: 100%; max-width: 16px; min-height: 3px; border-radius: 2px 2px 0 0;
+  transition: height .3s ease;
+}
+.hourly-label {
+  font-size: 8px; color: var(--text-light); margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.hourly-summary {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+}
+.hourly-tag {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 500;
+}
+.hourly-tag.golden { color: var(--green); background: rgba(52,199,89,.1); }
+.hourly-tag.weak { color: var(--orange); background: rgba(255,149,0,.1); }
+
+/* ═══ Duration Bias ═══ */
+.bias-overall {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 8px 10px; border-radius: var(--radius); margin-bottom: 8px;
+  background: var(--bg-hover);
+}
+.bias-pct {
+  font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.bias-overall.over .bias-pct { color: var(--orange); }
+.bias-overall.under .bias-pct { color: var(--green); }
+.bias-desc { font-size: 11px; color: var(--text-secondary); }
+
+.bias-tags { display: flex; flex-direction: column; gap: 4px; }
+.bias-tag-row {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  padding: 3px 0;
+}
+.bias-tag-name {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--text-secondary); min-width: 44px;
+}
+.bias-tag-val {
+  font-weight: 600; font-variant-numeric: tabular-nums; min-width: 40px;
+}
+.bias-tag-val.over { color: var(--orange); }
+.bias-tag-val.under { color: var(--green); }
+.bias-tag-val.ok { color: var(--text-light); }
+.bias-tag-detail { font-size: 11px; color: var(--text-light); }
+
+/* ═══ Pattern Cards ═══ */
+.pattern-list { display: flex; flex-direction: column; gap: 8px; }
+.pattern-card {
+  display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light); transition: var(--transition);
+}
+.pattern-card:hover { border-color: var(--border); }
+.pattern-positive { background: rgba(52,199,89,.04); border-color: rgba(52,199,89,.2); }
+.pattern-warning { background: rgba(255,149,0,.04); border-color: rgba(255,149,0,.2); }
+.pattern-danger { background: rgba(255,59,48,.04); border-color: rgba(255,59,48,.2); }
+.pattern-icon { font-size: 18px; flex-shrink: 0; line-height: 1.2; }
+.pattern-body { flex: 1; min-width: 0; }
+.pattern-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.pattern-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }

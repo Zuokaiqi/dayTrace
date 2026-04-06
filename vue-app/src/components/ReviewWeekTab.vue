@@ -87,6 +87,9 @@
       </div>
     </div>
 
+    <!-- Insights -->
+    <InsightsSection v-if="rs.activeDays > 0" :hourly="hourly" :bias="bias" :patterns="patterns" />
+
     <!-- Reflections -->
     <div class="rp-section" v-if="reflections.length > 0">
       <div class="rp-sec-head">💭 本周反思</div>
@@ -108,8 +111,9 @@ import { computed, reactive } from 'vue'
 import { useEventStore } from '../stores/events'
 import { useUiStore } from '../stores/ui'
 import { weekStart, WD } from '../utils/time'
-import { computeRangeStats, reflectionsForRange, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
+import { computeRangeStats, computeHourlyProfile, computeDurationBias, detectPatterns, reflectionsForRange, fmtMins, TAG_COLORS, TAG_NAMES } from '../composables/useReviewStats'
 import SparkLine from './SparkLine.vue'
+import InsightsSection from './InsightsSection.vue'
 
 const eventStore = useEventStore()
 const ui = useUiStore()
@@ -136,6 +140,10 @@ function trendTooltip(i, val, label) {
 
 const circ = 2 * Math.PI * 21
 const offset = computed(() => circ - (rs.value.avgScore / 100) * circ)
+
+const hourly = computed(() => computeHourlyProfile(rs.value.dailyStats))
+const bias = computed(() => computeDurationBias(rs.value.dailyStats))
+const patterns = computed(() => detectPatterns(rs.value, rs.value.dailyStats))
 
 const reflections = computed(() => reflectionsForRange(wStart.value, wEnd.value))
 
