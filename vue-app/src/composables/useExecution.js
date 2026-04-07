@@ -92,15 +92,13 @@ export function useExecution() {
 
     undoStore.pushUndo()
     const now = currentHM()
-    // Create a plan event at current time, 1 hour duration
-    const [h, m] = now.split(':').map(Number)
-    const endMin = Math.min(h * 60 + m + 60, 24 * 60)
+    // Only create an actual event — DDL task itself is the "plan"
     const ev = eventStore.addEvent({
-      title: ddlItem.label.split(' · ').pop(), // Use the task name without group prefix
+      title: ddlItem.label.split(' · ').pop(),
       tag: 'work',
       date: dk,
       repeat: null,
-      plan: { start: now, end: m2t(endMin) },
+      plan: null,
       actual: { start: now, end: now, note: '' }
     })
 
