@@ -1,12 +1,15 @@
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useEventStore } from '../stores/events'
 import { useUndoStore } from '../stores/undo'
+import { toggleDdlTodo } from './useDdlTodo'
 import { dateKey, m2t } from '../utils/time'
 
 // ─── Shared singleton state ───
 const activeEventId = ref(parseInt(localStorage.getItem('dt_exec_id')) || null)
-const elapsed = ref(0) // seconds since start
+const activeDdlItem = ref(null) // DDL task item linked to the active execution
+const elapsed = ref(0)
 let _timer = null
+let _endTicker = null
 
 function currentHM() {
   const now = new Date()
@@ -17,15 +20,18 @@ function _startTimer() {
   _stopTimer()
   _updateElapsed()
   _timer = setInterval(_updateElapsed, 1000)
+  // Also tick the active event's end time every 30s so it renders growing on the calendar
+  _endTicker = setInterval(_tickActiveEnd, 30000)
 }
 
 function _stopTimer() {
   if (_timer) { clearInterval(_timer); _timer = null }
+  if (_endTicker) { clearInterval(_endTicker); _endTicker = null }
 }
 
 function _updateElapsed() {
   const eventStore = useEventStore()
-  const ev = eventStore.events.find(e => e.id === activeEventId.value)
+  const ev = activeEventId.value ? eventStore.events.find(e => e.id === activeEventId.value) : null
   if (!ev || !ev.actual || !ev.actual.start) {
     activeEventId.value = null
     elapsed.value = 0
@@ -38,7 +44,16 @@ function _updateElapsed() {
   elapsed.value = Math.max(0, Math.floor((Date.now() - startMs.getTime()) / 1000))
 }
 
-// Restore timer on load if there's an active event
+function _tickActiveEnd() {
+  if (!activeEventId.value) return
+  const eventStore = useEventStore()
+  const ev = eventStore.events.find(e => e.id === activeEventId.value)
+  if (ev && ev.actual) {
+    ev.actual.end = currentHM()
+  }
+}
+
+// Restore timer on load
 if (activeEventId.value) _startTimer()
 
 export function useExecution() {
@@ -53,11 +68,9 @@ export function useExecution() {
   })
 
   /**
-   * Start executing a planned event
-   * @param {number} eventId
+   * Start executing a planned event (from calendar event block)
    */
-  function startExecution(eventId) {
-    // Stop current if any
+  function startExecution(eventId, ddlItem) {
     if (activeEventId.value) stopExecution()
 
     const ev = eventStore.events.find(e => e.id === eventId)
@@ -67,45 +80,61 @@ export function useExecution() {
     const now = currentHM()
     ev.actual = { start: now, end: now, note: '' }
     activeEventId.value = eventId
+    activeDdlItem.value = ddlItem || null
     localStorage.setItem('dt_exec_id', String(eventId))
     eventStore.save()
     _startTimer()
   }
 
   /**
-   * Stop the currently executing event
+   * Start executing from a DDL task item (creates plan event + starts actual)
+   */
+  function startFromDdlTask(ddlItem, dk) {
+    if (activeEventId.value) stopExecution()
+
+    undoStore.pushUndo()
+    const now = currentHM()
+    // Create a plan event at current time, 1 hour duration
+    const [h, m] = now.split(':').map(Number)
+    const endMin = Math.min(h * 60 + m + 60, 24 * 60)
+    const ev = eventStore.addEvent({
+      title: ddlItem.label.split(' · ').pop(), // Use the task name without group prefix
+      tag: 'work',
+      date: dk,
+      repeat: null,
+      plan: { start: now, end: m2t(endMin) },
+      actual: { start: now, end: now, note: '' }
+    })
+
+    activeEventId.value = ev.id
+    activeDdlItem.value = ddlItem
+    localStorage.setItem('dt_exec_id', String(ev.id))
+    _startTimer()
+  }
+
+  /**
+   * Stop the currently executing event, auto-complete linked DDL task
    */
   function stopExecution() {
     if (!activeEventId.value) return
+
     const ev = eventStore.events.find(e => e.id === activeEventId.value)
     if (ev && ev.actual) {
       undoStore.pushUndo()
       ev.actual.end = currentHM()
       eventStore.save()
     }
+
+    // Auto-complete the linked DDL task
+    if (activeDdlItem.value && !activeDdlItem.value.done) {
+      toggleDdlTodo(activeDdlItem.value, true)
+    }
+
     activeEventId.value = null
+    activeDdlItem.value = null
     elapsed.value = 0
     localStorage.removeItem('dt_exec_id')
     _stopTimer()
-  }
-
-  /**
-   * Update the actual.end of the active event to "now" (called by timer)
-   * This makes the event block grow in real-time on the calendar
-   */
-  function tickActiveEnd() {
-    if (!activeEventId.value) return
-    const ev = eventStore.events.find(e => e.id === activeEventId.value)
-    if (ev && ev.actual) {
-      ev.actual.end = currentHM()
-      // Don't trigger server sync on every tick, just update local
-    }
-  }
-
-  // Tick the active event's end time every 30s so it renders growing on the calendar
-  let _endTicker = null
-  if (typeof window !== 'undefined') {
-    _endTicker = setInterval(tickActiveEnd, 30000)
   }
 
   function formatElapsed(secs) {
@@ -116,29 +145,14 @@ export function useExecution() {
     return `${m}:${String(s).padStart(2, '0')}`
   }
 
-  /**
-   * Get today's planned events for the execution bar
-   */
-  function todayPlannedEvents() {
-    const today = new Date()
-    const evs = eventStore.eventsForDate(today)
-    return evs
-      .filter(e => e.plan)
-      .sort((a, b) => {
-        const aT = a.plan.start.split(':').map(Number)
-        const bT = b.plan.start.split(':').map(Number)
-        return (aT[0] * 60 + aT[1]) - (bT[0] * 60 + bT[1])
-      })
-  }
-
   return {
     activeEventId,
     activeEvent,
     isActive,
     elapsed,
     startExecution,
+    startFromDdlTask,
     stopExecution,
-    formatElapsed,
-    todayPlannedEvents
+    formatElapsed
   }
 }
