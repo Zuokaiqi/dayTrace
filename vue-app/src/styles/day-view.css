@@ -1,5 +1,5 @@
 /* ═══ DAY VIEW ═══ */
-.day-view { display: flex; height: calc(100vh - var(--topbar-h) - 1px); }
+.day-view { display: flex; flex: 1; min-height: 0; }
 .day-timeline { overflow-y: auto; position: relative; flex: 1; min-width: 200px; background: var(--bg); }
 .day-frozen-header { position: sticky; top: 0; z-index: 12; background: var(--bg); }
 .day-grid { display: grid; grid-template-columns: 56px 1fr 1fr; position: relative; }
