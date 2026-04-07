@@ -9,6 +9,7 @@ export const useEventStore = defineStore('events', () => {
   const nextId = ref(1)
 
   let _syncTimer = null
+  let _pushPending = false
 
   // ─── Local persistence ───
   function load() {
@@ -29,21 +30,26 @@ export const useEventStore = defineStore('events', () => {
 
   function _syncToServer() {
     clearTimeout(_syncTimer)
+    _pushPending = true
     _syncTimer = setTimeout(() => {
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
       authFetch('/api/events', {
         method: 'POST',
         body: JSON.stringify({ events: events.value, nextId: nextId.value })
-      }).then(() => notifyPushComplete(true))
-        .catch(() => notifyPushComplete(false))
+      }).then(() => { _pushPending = false; notifyPushComplete(true) })
+        .catch(() => { _pushPending = false; notifyPushComplete(false) })
     }, 500)
   }
 
   async function syncFromServer() {
+    // Skip pull if there are pending local changes to avoid overwriting
+    if (_pushPending) return false
     try {
       const resp = await authFetch('/api/events')
       if (!resp.ok) return false
+      // Re-check after async fetch — local changes may have happened during the request
+      if (_pushPending) return false
       const data = await resp.json()
       if (data.events?.length > 0) {
         events.value = data.events
