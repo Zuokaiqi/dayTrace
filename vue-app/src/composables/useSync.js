@@ -10,6 +10,8 @@ const syncStatus = ref('idle')
 const lastSyncTime = ref(null)
 let _pullTimer = null
 let _statusResetTimer = null
+let _lastPushTime = 0 // timestamp of last push completion
+const PUSH_COOLDOWN = 2000 // don't pull within 2s after a push
 
 /**
  * Pull all data from server (events, tasks, goals, links)
@@ -21,6 +23,8 @@ async function pullFromServer(opts = {}) {
 
   const { silent = false } = opts
   if (syncStatus.value === 'syncing') return
+  // Skip pull if a push just happened (avoid overwriting local changes with stale server data)
+  if (Date.now() - _lastPushTime < PUSH_COOLDOWN) return
 
   syncStatus.value = 'syncing'
   try {
@@ -64,6 +68,7 @@ async function pullFromServer(opts = {}) {
  * Updates the status indicator briefly
  */
 function notifyPushComplete(success = true) {
+  _lastPushTime = Date.now()
   if (success) {
     syncStatus.value = 'success'
     lastSyncTime.value = Date.now()
@@ -79,6 +84,7 @@ function notifyPushComplete(success = true) {
  */
 function notifyPushStart() {
   syncStatus.value = 'syncing'
+  _lastPushTime = Date.now() // also block pulls while pushing
 }
 
 /**
