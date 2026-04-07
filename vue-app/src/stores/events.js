@@ -9,6 +9,7 @@ export const useEventStore = defineStore('events', () => {
   const nextId = ref(1)
 
   let _syncTimer = null
+  let _dirty = false
 
   // ─── Local persistence ───
   function load() {
@@ -29,15 +30,42 @@ export const useEventStore = defineStore('events', () => {
 
   function _syncToServer() {
     clearTimeout(_syncTimer)
+    _dirty = true
     _syncTimer = setTimeout(() => {
-      const { notifyPushStart, notifyPushComplete } = useSync()
-      notifyPushStart()
-      authFetch('/api/events', {
-        method: 'POST',
-        body: JSON.stringify({ events: events.value, nextId: nextId.value })
-      }).then(() => notifyPushComplete(true))
-        .catch(() => notifyPushComplete(false))
+      _pushNow()
     }, 500)
+  }
+
+  function _pushNow() {
+    if (!_dirty) return
+    _dirty = false
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    authFetch('/api/events', {
+      method: 'POST',
+      body: JSON.stringify({ events: events.value, nextId: nextId.value })
+    }).then(() => notifyPushComplete(true))
+      .catch(() => notifyPushComplete(false))
+  }
+
+  // Flush pending push on page unload (prevents data loss on refresh)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+      if (_dirty) {
+        clearTimeout(_syncTimer)
+        const token = localStorage.getItem('dt_token')
+        const body = JSON.stringify({ events: events.value, nextId: nextId.value })
+        try {
+          fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body,
+            keepalive: true
+          })
+        } catch {}
+        _dirty = false
+      }
+    })
   }
 
   async function syncFromServer() {
