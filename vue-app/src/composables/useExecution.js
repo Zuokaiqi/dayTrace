@@ -6,7 +6,8 @@ import { dateKey, m2t } from '../utils/time'
 
 // ─── Shared singleton state ───
 const activeEventId = ref(parseInt(localStorage.getItem('dt_exec_id')) || null)
-const activeDdlItem = ref(null) // DDL task item linked to the active execution
+const activeDdlItem = ref(null)
+const startTimestamp = ref(parseInt(localStorage.getItem('dt_exec_ts')) || 0) // precise ms timestamp
 const elapsed = ref(0)
 let _timer = null
 let _endTicker = null
@@ -30,18 +31,13 @@ function _stopTimer() {
 }
 
 function _updateElapsed() {
-  const eventStore = useEventStore()
-  const ev = activeEventId.value ? eventStore.events.find(e => e.id === activeEventId.value) : null
-  if (!ev || !ev.actual || !ev.actual.start) {
+  if (!activeEventId.value || !startTimestamp.value) {
     activeEventId.value = null
     elapsed.value = 0
     _stopTimer()
     return
   }
-  const [h, m] = ev.actual.start.split(':').map(Number)
-  const startMs = new Date()
-  startMs.setHours(h, m, 0, 0)
-  elapsed.value = Math.max(0, Math.floor((Date.now() - startMs.getTime()) / 1000))
+  elapsed.value = Math.max(0, Math.floor((Date.now() - startTimestamp.value) / 1000))
 }
 
 function _tickActiveEnd() {
@@ -81,7 +77,9 @@ export function useExecution() {
     ev.actual = { start: now, end: now, note: '' }
     activeEventId.value = eventId
     activeDdlItem.value = ddlItem || null
+    startTimestamp.value = Date.now()
     localStorage.setItem('dt_exec_id', String(eventId))
+    localStorage.setItem('dt_exec_ts', String(startTimestamp.value))
     eventStore.save()
     _startTimer()
   }
@@ -108,7 +106,9 @@ export function useExecution() {
 
     activeEventId.value = ev.id
     activeDdlItem.value = ddlItem
+    startTimestamp.value = Date.now()
     localStorage.setItem('dt_exec_id', String(ev.id))
+    localStorage.setItem('dt_exec_ts', String(startTimestamp.value))
     _startTimer()
   }
 
@@ -132,8 +132,10 @@ export function useExecution() {
 
     activeEventId.value = null
     activeDdlItem.value = null
+    startTimestamp.value = 0
     elapsed.value = 0
     localStorage.removeItem('dt_exec_id')
+    localStorage.removeItem('dt_exec_ts')
     _stopTimer()
   }
 
