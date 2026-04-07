@@ -91,17 +91,23 @@ function startAutoSync() {
       pullFromServer({ silent: true })
     }
   }
+  // Sync when tab becomes visible
   document.addEventListener('visibilitychange', onVisibility)
 
-  // Also pull periodically every 5 minutes while visible
+  // Sync when window gains focus (covers cross-device: user switches to this browser window)
+  const onFocus = () => pullFromServer({ silent: true })
+  window.addEventListener('focus', onFocus)
+
+  // Pull periodically every 1 minute while visible
   _pullTimer = setInterval(() => {
     if (document.visibilityState === 'visible') {
       pullFromServer({ silent: true })
     }
-  }, 5 * 60 * 1000)
+  }, 60 * 1000)
 
   return () => {
     document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('focus', onFocus)
     clearInterval(_pullTimer)
   }
 }
