@@ -7,7 +7,11 @@ import { t2m } from './time'
  */
 export function calcOverlapLayout(items) {
   if (!items.length) return new Map()
-  const sorted = [...items].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
+  // Ensure every item has at least 1 minute duration for layout calculation
+  const sorted = [...items].map(i => ({
+    ...i,
+    endMin: Math.max(i.endMin, i.startMin + 1)
+  })).sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
   const colEnds = []
   sorted.forEach(item => {
     let placed = false
