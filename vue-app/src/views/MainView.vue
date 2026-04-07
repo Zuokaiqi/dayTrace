@@ -6,7 +6,6 @@
     <div class="main-body">
       <GoalsPanel @toggle="goalsOpen = !goalsOpen" @close="goalsOpen = false" />
       <div class="view-area">
-        <ExecutionBar v-if="ui.view === 'day'" />
         <DayView v-if="ui.view === 'day'" />
         <WeekView v-else-if="ui.view === 'week'" />
         <MonthView v-else />
@@ -106,7 +105,6 @@ import MobileReview from '../components/MobileReview.vue'
 import ReminderAlert from '../components/ReminderAlert.vue'
 import AnnouncementPanel from '../components/AnnouncementPanel.vue'
 import FeedbackPanel from '../components/FeedbackPanel.vue'
-import ExecutionBar from '../components/ExecutionBar.vue'
 
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -152,7 +150,7 @@ onUnmounted(() => {
 /* Desktop */
 .main-layout { height: 100%; display: flex; flex-direction: column; }
 .main-body { flex: 1; display: flex; overflow: hidden; position: relative; }
-.view-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.view-area { flex: 1; overflow: hidden; }
 
 /* Mobile */
 .m-layout {
