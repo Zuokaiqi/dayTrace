@@ -1,0 +1,18 @@
+{
+  "name": "DayTrace 日程管理",
+  "short_name": "DayTrace",
+  "description": "智能日程规划与执行力追踪",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#3370ff",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
