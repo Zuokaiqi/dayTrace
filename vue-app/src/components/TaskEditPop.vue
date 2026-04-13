@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="task-edit-pop" :style="popStyle" ref="popEl" @mousedown.stop>
+    <div v-if="visible" class="task-edit-pop" :style="popStyle" ref="popEl" @mousedown.stop="onPopMousedown">
       <div class="tep-header">编辑任务</div>
       <div class="tep-field">
         <label class="tep-label">任务名称</label>
@@ -31,6 +31,22 @@
       <div class="tep-field">
         <label class="tep-label">截止日期</label>
         <DatePicker v-model="form.deadline" placeholder="选择截止日期" />
+      </div>
+      <div class="tep-field">
+        <label class="tep-label">循环</label>
+        <div class="tep-group-picker" ref="repeatPickerRef">
+          <div class="tep-group-trigger" @click="repeatDropOpen = !repeatDropOpen">
+            <span class="tep-group-text">{{ repeatLabel }}</span>
+            <span class="tep-group-arrow" :class="{ open: repeatDropOpen }">▾</span>
+          </div>
+          <div v-if="repeatDropOpen" class="tep-group-dropdown">
+            <div v-for="opt in repeatOpts" :key="opt.value"
+              :class="['tep-group-opt', { sel: form.repeat === opt.value }]"
+              @click="form.repeat = opt.value; repeatDropOpen = false">
+              <span class="tep-group-opt-name">{{ opt.label }}</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="tep-field">
         <label class="tep-label">所属分组</label>
@@ -68,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, nextTick } from 'vue'
 import { useTaskStore } from '../stores/tasks'
 import { useUndoStore } from '../stores/undo'
 import { TAG_COLORS, TAG_NAMES } from '../utils/time'
@@ -83,6 +99,14 @@ const titleInput = ref(null)
 const popStyle = ref({})
 const groupDropOpen = ref(false)
 const groupPickerRef = ref(null)
+const repeatDropOpen = ref(false)
+const repeatPickerRef = ref(null)
+const repeatOpts = [
+  { value: '', label: '不重复' },
+  { value: 'daily', label: '每天' },
+  { value: 'weekday', label: '工作日' },
+  { value: 'weekly', label: '每周' }
+]
 const tagNames = TAG_NAMES
 const tagColors = TAG_COLORS
 
@@ -91,12 +115,18 @@ const form = reactive({
   tag: 'work',
   startDate: '',
   deadline: '',
+  repeat: '',
   monthGoalId: null
 })
 
 let editWid = null
 
 const goals = computed(() => taskStore.monthlyGoals)
+
+const repeatLabel = computed(() => {
+  const o = repeatOpts.find(x => x.value === form.repeat)
+  return o ? o.label : '不重复'
+})
 
 const selectedGroupLabel = computed(() => {
   if (!form.monthGoalId) return '无分组'
@@ -111,6 +141,9 @@ function open(w, x, y) {
   form.startDate = w.startDate || ''
   form.deadline = w.deadline || ''
   form.monthGoalId = w.monthGoalId || null
+  // Load repeat from frozen task
+  const frozen = taskStore.findFrozenMatch(w)
+  form.repeat = (frozen && !frozen.sub ? frozen.task.repeat : '') || ''
   visible.value = true
 
   nextTick(() => {
@@ -125,7 +158,7 @@ function open(w, x, y) {
   })
 }
 
-function close() { visible.value = false; groupDropOpen.value = false; editWid = null }
+function close() { visible.value = false; groupDropOpen.value = false; repeatDropOpen.value = false; editWid = null }
 
 function doSave() {
   const title = form.title.trim()
@@ -142,6 +175,8 @@ function doSave() {
     m.task.title = title
     m.task.tag = form.tag
     m.task.deadline = form.deadline || null
+    m.task.repeat = form.repeat || null
+    if (!form.repeat) { delete m.task.repeatEnd; delete m.task.excludes }
   } else if (m && m.sub) {
     m.sub.title = title
     m.sub.label = title
@@ -166,11 +201,10 @@ function doSave() {
   close()
 }
 
-function onDocClick(e) {
+function onPopMousedown(e) {
   if (groupPickerRef.value && !groupPickerRef.value.contains(e.target)) groupDropOpen.value = false
+  if (repeatPickerRef.value && !repeatPickerRef.value.contains(e.target)) repeatDropOpen.value = false
 }
-onMounted(() => document.addEventListener('mousedown', onDocClick))
-onUnmounted(() => document.removeEventListener('mousedown', onDocClick))
 
 defineExpose({ open, close })
 </script>
@@ -178,39 +212,47 @@ defineExpose({ open, close })
 <style>
 .task-edit-pop {
   position: fixed; z-index: 300; width: 300px;
-  background: var(--bg); border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-  padding: 16px; animation: tepIn .15s ease;
+  background: var(--bg); border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.08), 0 16px 48px rgba(0,0,0,.12);
+  padding: 20px; animation: tepIn .25s cubic-bezier(.16,1,.3,1);
 }
-@keyframes tepIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+html.dark .task-edit-pop {
+  box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 4px 16px rgba(0,0,0,.3), 0 16px 48px rgba(0,0,0,.5);
+}
+@keyframes tepIn {
+  from { opacity: 0; transform: translateY(10px) scale(.95); }
+  to { opacity: 1; transform: none; }
+}
 .tep-header {
-  font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 14px;
+  font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 16px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border-light);
 }
 .tep-field { margin-bottom: 12px; }
 .tep-label {
-  display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary);
-  margin-bottom: 6px;
+  display: block; font-size: 11px; font-weight: 500; color: var(--text-light);
+  margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em;
 }
 .tep-input {
-  width: 100%; padding: 7px 10px; border: 1px solid var(--border-light);
-  border-radius: var(--radius); font-size: 13px; font-family: var(--font);
-  color: var(--text); background: var(--bg); outline: none; transition: var(--transition);
+  width: 100%; padding: 7px 10px; border: 1.5px solid var(--border-light);
+  border-radius: 8px; font-size: 13px; font-family: var(--font);
+  color: var(--text); background: var(--bg); outline: none; transition: all .15s ease;
   box-sizing: border-box;
 }
-.tep-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
-.tep-tags { display: flex; gap: 4px; }
+.tep-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(51,112,255,.08); }
+.tep-tags { display: flex; gap: 6px; }
 .tep-tag {
-  padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 500;
-  border: 1px solid var(--border-light); background: transparent;
-  color: var(--text-secondary); cursor: pointer; transition: var(--transition);
+  padding: 4px 12px; border-radius: 14px; font-size: 11px; font-weight: 500;
+  border: 1.5px solid var(--border-light); background: transparent;
+  color: var(--text-light); cursor: pointer; transition: all .15s ease;
 }
-.tep-tag:hover { border-color: var(--text-light); }
+.tep-tag:hover { border-color: var(--border); color: var(--text-secondary); }
+.tep-tag.sel { border-color: currentColor; }
 .tep-group-picker { position: relative; }
 .tep-group-trigger {
   display: flex; align-items: center; gap: 6px;
-  padding: 7px 10px; border: 1px solid var(--border-light); border-radius: var(--radius);
+  padding: 7px 10px; border: 1.5px solid var(--border-light); border-radius: 8px;
   cursor: pointer; font-size: 13px; color: var(--text); background: var(--bg);
-  transition: var(--transition); user-select: none; box-sizing: border-box;
+  transition: all .15s ease; user-select: none; box-sizing: border-box;
 }
 .tep-group-trigger:hover { border-color: var(--border); }
 .tep-group-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -219,29 +261,45 @@ defineExpose({ open, close })
 .tep-group-dropdown {
   position: absolute; top: 100%; left: 0; margin-top: 4px;
   min-width: 100%; width: max-content;
-  background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg); max-height: 180px; overflow-y: auto; z-index: 310;
-  padding: 4px; animation: tepDropIn .12s ease;
+  background: var(--bg); border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.08), 0 16px 48px rgba(0,0,0,.12);
+  max-height: 180px; overflow-y: auto; z-index: 310;
+  padding: 5px; animation: tepDropIn .2s cubic-bezier(.16,1,.3,1);
 }
-@keyframes tepDropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+html.dark .tep-group-dropdown {
+  box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 4px 16px rgba(0,0,0,.3), 0 16px 48px rgba(0,0,0,.5);
+}
+@keyframes tepDropIn {
+  from { opacity: 0; transform: translateY(6px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
 .tep-group-opt {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; font-size: 13px; color: var(--text); cursor: pointer;
-  border-radius: var(--radius); transition: var(--transition); white-space: nowrap;
+  padding: 7px 12px; font-size: 13px; color: var(--text); cursor: pointer;
+  border-radius: 8px; transition: all .12s ease; white-space: nowrap;
 }
 .tep-group-opt:hover { background: var(--bg-hover); }
+.tep-group-opt:active { transform: scale(.98); }
 .tep-group-opt.sel { color: var(--blue); font-weight: 500; background: var(--blue-bg); }
 .tep-group-opt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .tep-group-opt-name { flex: 1; }
-.tep-foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
-.tep-btn {
-  padding: 6px 16px; border-radius: var(--radius); font-size: 13px;
-  font-family: var(--font); cursor: pointer; transition: var(--transition); border: none;
+.tep-foot {
+  display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px;
+  padding-top: 12px; border-top: 1px solid var(--border-light);
 }
-.tep-cancel { background: var(--bg-hover); color: var(--text-secondary); }
-.tep-cancel:hover { background: var(--border-light); }
-.tep-save { background: var(--blue); color: #fff; }
-.tep-save:hover { opacity: .9; }
+.tep-btn {
+  padding: 6px 16px; border-radius: 8px; font-size: 12px;
+  font-family: var(--font); cursor: pointer; transition: all .15s ease; border: none;
+  font-weight: 500;
+}
+.tep-btn:active { transform: scale(.96); }
+.tep-cancel { background: var(--bg-hover); color: var(--text-light); }
+.tep-cancel:hover { background: var(--border-light); color: var(--text-secondary); }
+.tep-save {
+  background: var(--blue); color: #fff;
+  box-shadow: 0 2px 6px rgba(51,112,255,.25);
+}
+.tep-save:hover { box-shadow: 0 3px 10px rgba(51,112,255,.3); filter: brightness(1.05); }
 .tep-backdrop {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 299; background: transparent;
 }

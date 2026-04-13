@@ -110,7 +110,7 @@
 .delta-arrow { font-size: 9px; }
 
 /* ═══ SparkLine ═══ */
-.sparkline-wrap { margin: 8px 0; }
+.sparkline-wrap { margin: 8px 0; position: relative; }
 .sparkline-wrap svg { width: 100%; display: block; }
 .spark-grid { stroke: var(--border-light); stroke-width: 0.5; }
 .spark-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

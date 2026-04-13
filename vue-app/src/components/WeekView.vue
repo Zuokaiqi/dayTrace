@@ -32,6 +32,7 @@
             <input type="checkbox" class="ddl-todo-cb" :checked="it.done"
               @change="onTodoCb(it, $event.target.checked)">
             <span class="ddl-todo-dot" :style="{ background: it.tagColor }"></span>
+            <span v-if="it.repeat" class="ddl-repeat-icon" title="循环任务">🔁</span>
             <span class="ddl-todo-text">{{ it.label }}</span>
           </label>
           <div class="ddl-add-btn" @click.stop="onTodoCellClick(d.key, $event)">+</div>
@@ -82,7 +83,7 @@ import { useUndoStore } from '../stores/undo'
 import { weekStart, dateKey, sameDay, WDE, SH, EH, SL, SNAP, TAG_COLORS, t2m, y2m, m2t, pos } from '../utils/time'
 import { calcOverlapLayout } from '../utils/layout'
 import { usePopover } from '../composables/usePopover'
-import { getTasksForDate as getTasksForDateFn, toggleDdlTodo, changeDdlDeadline, deleteDdlTodo, getTomorrowKey, getNextWeekKey } from '../composables/useDdlTodo'
+import { getTasksForDate as getTasksForDateFn, toggleDdlTodo, changeDdlDeadline, deleteDdlTodo, deleteDdlRepeatThis, deleteDdlRepeatFuture, getTomorrowKey, getNextWeekKey } from '../composables/useDdlTodo'
 import { createDragMoveHandler } from '../composables/useDragMove'
 import { setupResize } from '../composables/useResize'
 import { taskDrag, endTaskDrag, moveTaskDrag, startTaskDrag } from '../composables/useTaskDrag'
@@ -239,9 +240,18 @@ function showDdlMenu(item, dk, e) {
   menuItems.push(
     { act: 'tomorrow', icon: '📅', label: '挪到明天', fn() { changeDdlDeadline(item, getTomorrowKey(dk)) } },
     { act: 'nextweek', icon: '📅', label: '挪到下周', fn() { changeDdlDeadline(item, getNextWeekKey(dk)) } },
-    { act: 'done', icon: item.done ? '↩️' : '✅', label: item.done ? '标记未完成' : '标记完成', fn() { toggleDdlTodo(item, !item.done) } },
-    { act: 'delete', icon: '🗑', label: '删除', cls: 'ctx-danger', fn() { deleteDdlTodo(item) } }
+    { act: 'done', icon: item.done ? '↩️' : '✅', label: item.done ? '标记未完成' : '标记完成', fn() { toggleDdlTodo(item, !item.done) } }
   )
+  if (item.repeat) {
+    menuItems.push(
+      { act: 'delete-this', icon: '🗑', label: '删除此任务', cls: 'ctx-danger', fn() { deleteDdlRepeatThis(item, dk) } },
+      { act: 'delete-future', icon: '🗑', label: '删除此任务及以后', cls: 'ctx-danger', fn() { deleteDdlRepeatFuture(item, dk) } }
+    )
+  } else {
+    menuItems.push(
+      { act: 'delete', icon: '🗑', label: '删除', cls: 'ctx-danger', fn() { deleteDdlTodo(item) } }
+    )
+  }
 
   ddlCtxMenu.value?.show(e.clientX, e.clientY, menuItems)
 }

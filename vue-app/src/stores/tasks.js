@@ -17,6 +17,8 @@ export const useTaskStore = defineStore('tasks', () => {
 
   let _taskSyncTimer = null
   let _goalsSyncTimer = null
+  let _tasksDirty = false
+  let _goalsDirty = false
 
   // ═══ Tasks (frozen view) persistence ═══
   function loadTasks() {
@@ -32,22 +34,29 @@ export const useTaskStore = defineStore('tasks', () => {
   function saveTasks() {
     localStorage.setItem('dt_tasks', JSON.stringify(tasks.value))
     localStorage.setItem('dt_tnid', taskNextId.value)
+    _tasksDirty = true
+    localStorage.setItem('dt_tasks_dirty', '1')
+    const { notifyDirty } = useSync()
+    notifyDirty()
     clearTimeout(_taskSyncTimer)
     _taskSyncTimer = setTimeout(() => {
+      _tasksDirty = false
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
       authFetch('/api/tasks', {
         method: 'POST',
         body: JSON.stringify({ tasks: tasks.value, taskNextId: taskNextId.value })
-      }).then(() => notifyPushComplete(true))
+      }).then(() => { localStorage.removeItem('dt_tasks_dirty'); notifyPushComplete(true) })
         .catch(() => notifyPushComplete(false))
     }, 500)
   }
 
   async function syncTasksFromServer() {
+    if (_tasksDirty) return false
     try {
       const resp = await authFetch('/api/tasks')
       if (!resp.ok) return false
+      if (_tasksDirty) return false
       const data = await resp.json()
       if (data.tasks?.length > 0) {
         tasks.value = data.tasks
@@ -82,20 +91,27 @@ export const useTaskStore = defineStore('tasks', () => {
       wNextId: wNextId.value
     }
     localStorage.setItem('dt_goals', JSON.stringify(data))
+    _goalsDirty = true
+    localStorage.setItem('dt_goals_dirty', '1')
+    const { notifyDirty } = useSync()
+    notifyDirty()
     clearTimeout(_goalsSyncTimer)
     _goalsSyncTimer = setTimeout(() => {
+      _goalsDirty = false
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
       authFetch('/api/goals', { method: 'POST', body: JSON.stringify(data) })
-        .then(() => notifyPushComplete(true))
+        .then(() => { localStorage.removeItem('dt_goals_dirty'); notifyPushComplete(true) })
         .catch(() => notifyPushComplete(false))
     }, 600)
   }
 
   async function syncGoalsFromServer() {
+    if (_goalsDirty) return false
     try {
       const resp = await authFetch('/api/goals')
       if (!resp.ok) return false
+      if (_goalsDirty) return false
       const d = await resp.json()
       if (d.monthlyGoals) monthlyGoals.value = d.monthlyGoals
       if (d.weeklyTasks) weeklyTasks.value = d.weeklyTasks
@@ -110,6 +126,67 @@ export const useTaskStore = defineStore('tasks', () => {
       return true
     } catch {}
     return false
+  }
+
+  // ═══ Repeat task helpers ═══
+  function matchesTaskRepeat(t, dk) {
+    if (!t.deadline) return false
+    if (t.excludes && t.excludes.includes(dk)) return false
+    if (t.deadline === dk) return true
+    if (!t.repeat) return false
+    const ed = new Date(t.deadline + 'T00:00:00')
+    const d = new Date(dk + 'T00:00:00')
+    if (d < ed) return false
+    if (t.repeatEnd && dk > t.repeatEnd) return false
+    const dow = d.getDay()
+    if (t.repeat === 'daily') return true
+    if (t.repeat === 'weekday' && dow >= 1 && dow <= 5) return true
+    if (t.repeat === 'weekly' && ed.getDay() === dow) return true
+    return false
+  }
+
+  function addTaskExclude(id, dateStr) {
+    const t = tasks.value.find(x => x.id === id)
+    if (!t || !t.repeat) return
+    if (!t.excludes) t.excludes = []
+    if (!t.excludes.includes(dateStr)) t.excludes.push(dateStr)
+    saveTasks()
+  }
+
+  function stopTaskRepeatFrom(id, dateStr) {
+    const t = tasks.value.find(x => x.id === id)
+    if (!t || !t.repeat) return
+    if (dateStr === t.deadline) {
+      tasks.value = tasks.value.filter(x => x.id !== id)
+      // Also remove linked weeklyTask
+      const wt = weeklyTasks.value.find(w => w.frozenTaskId === id)
+      if (wt) { weeklyTasks.value = weeklyTasks.value.filter(x => x.id !== wt.id); saveGoals() }
+    } else {
+      const d = new Date(dateStr + 'T00:00:00')
+      d.setDate(d.getDate() - 1)
+      t.repeatEnd = dateKey(d)
+    }
+    saveTasks()
+  }
+
+  function forkTaskInstance(id, viewDate, overrides) {
+    const t = tasks.value.find(x => x.id === id)
+    if (!t) return null
+    // Inline exclude (avoid double saveTasks from addTaskExclude)
+    if (t.repeat) {
+      if (!t.excludes) t.excludes = []
+      if (!t.excludes.includes(viewDate)) t.excludes.push(viewDate)
+    }
+    const forked = {
+      id: taskNextId.value++,
+      title: t.title, tag: t.tag, deadline: viewDate,
+      completed: false, subtasks: [], repeat: null,
+      createdAt: new Date().toISOString(),
+      ...overrides
+    }
+    tasks.value.push(forked)
+    saveTasks()
+    return forked
   }
 
   // ═══ Cross-system binding ═══
@@ -163,12 +240,40 @@ export const useTaskStore = defineStore('tasks', () => {
   // Init
   loadTasks()
   loadGoals()
+  // Recover from interrupted push (e.g., page refresh during debounce window)
+  if (localStorage.getItem('dt_tasks_dirty')) {
+    _tasksDirty = true
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    _tasksDirty = false
+    localStorage.removeItem('dt_tasks_dirty')
+    authFetch('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ tasks: tasks.value, taskNextId: taskNextId.value })
+    }).then(() => notifyPushComplete(true))
+      .catch(() => notifyPushComplete(false))
+  }
+  if (localStorage.getItem('dt_goals_dirty')) {
+    _goalsDirty = true
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    _goalsDirty = false
+    localStorage.removeItem('dt_goals_dirty')
+    const data = {
+      monthlyGoals: monthlyGoals.value, weeklyTasks: weeklyTasks.value,
+      mNextId: mNextId.value, wNextId: wNextId.value
+    }
+    authFetch('/api/goals', { method: 'POST', body: JSON.stringify(data) })
+      .then(() => notifyPushComplete(true))
+      .catch(() => notifyPushComplete(false))
+  }
 
   return {
     tasks, taskNextId, monthlyGoals, weeklyTasks, mNextId, wNextId,
     loadTasks, saveTasks, syncTasksFromServer,
     loadGoals, saveGoals, syncGoalsFromServer,
     findFrozenMatch, migrateFrozenTaskIds, isTaskCompleted,
-    toggleWeeklyDone
+    toggleWeeklyDone,
+    matchesTaskRepeat, addTaskExclude, stopTaskRepeatFrom, forkTaskInstance
   }
 })

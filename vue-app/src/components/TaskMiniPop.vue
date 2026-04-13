@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="task-mini-pop" :style="popStyle" ref="popEl" @mousedown.stop>
+    <div v-if="visible" class="task-mini-pop" :style="popStyle" ref="popEl" @mousedown.stop="onPopMousedown">
       <div class="tmp-header">新建任务 <span class="tmp-date">{{ dateLabel }}</span></div>
       <input
         ref="nameInput"
@@ -22,10 +22,41 @@
         <span class="tmp-date-label">截止</span>
         <DatePicker v-model="deadline" placeholder="选择日期" />
       </div>
-      <select class="tmp-parent" v-model="parentId">
-        <option value="">创建为分组</option>
-        <option v-for="g in goals" :key="g.id" :value="g.id">{{ g.title }}</option>
-      </select>
+      <div class="tmp-date-row">
+        <span class="tmp-date-label">循环</span>
+        <div class="tmp-picker" ref="repeatPickerRef" style="margin-bottom:0">
+          <div class="tmp-picker-trigger" @click="repeatDropOpen = !repeatDropOpen">
+            <span class="tmp-picker-text">{{ repeatLabel }}</span>
+            <span class="tmp-picker-arrow" :class="{ open: repeatDropOpen }">▾</span>
+          </div>
+          <div v-if="repeatDropOpen" class="tmp-picker-dropdown">
+            <div v-for="opt in repeatOpts" :key="opt.value"
+              :class="['tmp-picker-opt', { sel: repeat === opt.value }]"
+              @click="repeat = opt.value; repeatDropOpen = false">
+              {{ opt.label }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tmp-picker" ref="parentPickerRef">
+        <div class="tmp-picker-trigger" @click="parentDropOpen = !parentDropOpen">
+          <span class="tmp-picker-text">{{ parentLabel }}</span>
+          <span class="tmp-picker-arrow" :class="{ open: parentDropOpen }">▾</span>
+        </div>
+        <div v-if="parentDropOpen" class="tmp-picker-dropdown">
+          <div :class="['tmp-picker-opt', { sel: !parentId }]"
+            @click="parentId = ''; parentDropOpen = false">
+            <span class="tmp-picker-dot" style="background:var(--text-light)"></span>
+            创建为分组
+          </div>
+          <div v-for="g in goals" :key="g.id"
+            :class="['tmp-picker-opt', { sel: parentId == g.id }]"
+            @click="parentId = g.id; parentDropOpen = false">
+            <span class="tmp-picker-dot" :style="{ background: tagColors[g.tag] || 'var(--text-light)' }"></span>
+            {{ g.title }}
+          </div>
+        </div>
+      </div>
       <div class="tmp-foot">
         <button class="tmp-cancel" @click="close">取消</button>
         <button class="tmp-confirm" @click="doCreate">创建</button>
@@ -53,8 +84,29 @@ const popStyle = ref({})
 const name = ref('')
 const tag = ref('work')
 const deadline = ref('')
+const repeat = ref('')
 const parentId = ref('')
 const defaultDk = ref('')
+const repeatDropOpen = ref(false)
+const repeatPickerRef = ref(null)
+const parentDropOpen = ref(false)
+const parentPickerRef = ref(null)
+
+const repeatOpts = [
+  { value: '', label: '不重复' },
+  { value: 'daily', label: '每天' },
+  { value: 'weekday', label: '工作日' },
+  { value: 'weekly', label: '每周' }
+]
+const repeatLabel = computed(() => {
+  const o = repeatOpts.find(x => x.value === repeat.value)
+  return o ? o.label : '不重复'
+})
+const parentLabel = computed(() => {
+  if (!parentId.value) return '创建为分组'
+  const g = taskStore.monthlyGoals.find(x => x.id == parentId.value)
+  return g ? g.title : '创建为分组'
+})
 
 const tags = TAG_NAMES
 const tagColors = { work: 'var(--blue)', personal: 'var(--green)', admin: 'var(--orange)' }
@@ -71,6 +123,7 @@ function open(x, y, dk) {
   deadline.value = dk || ''
   name.value = ''
   tag.value = 'work'
+  repeat.value = ''
   parentId.value = ''
   visible.value = true
 
@@ -86,7 +139,12 @@ function open(x, y, dk) {
   })
 }
 
-function close() { visible.value = false }
+function close() { visible.value = false; repeatDropOpen.value = false; parentDropOpen.value = false }
+
+function onPopMousedown(e) {
+  if (repeatPickerRef.value && !repeatPickerRef.value.contains(e.target)) repeatDropOpen.value = false
+  if (parentPickerRef.value && !parentPickerRef.value.contains(e.target)) parentDropOpen.value = false
+}
 
 function doCreate() {
   const title = name.value.trim()
@@ -104,10 +162,12 @@ function doCreate() {
 
   // Create frozen task
   const frozenId = taskStore.taskNextId++
-  taskStore.tasks.push({
+  const taskObj = {
     id: frozenId, title, tag: tag.value, completed: false,
     subtasks: [], createdAt: new Date().toISOString(), deadline: dl
-  })
+  }
+  if (repeat.value) taskObj.repeat = repeat.value
+  taskStore.tasks.push(taskObj)
   taskStore.saveTasks()
 
   if (gid) {
@@ -163,12 +223,33 @@ defineExpose({ open, close })
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
 .tmp-date-label { font-size: 12px; color: var(--text-light); font-weight: 500; flex-shrink: 0; }
-.tmp-parent {
-  width: 100%; padding: 6px 10px; border: 1px solid var(--border-light);
-  border-radius: var(--radius); font-size: 12px; font-family: var(--font);
-  color: var(--text); background: var(--bg); outline: none;
-  margin-bottom: 10px; cursor: pointer; box-sizing: border-box;
+.tmp-picker { position: relative; flex: 1; margin-bottom: 10px; }
+.tmp-picker-trigger {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border: 1px solid var(--border-light); border-radius: var(--radius);
+  cursor: pointer; font-size: 12px; color: var(--text); background: var(--bg);
+  transition: var(--transition); user-select: none; box-sizing: border-box;
 }
+.tmp-picker-trigger:hover { border-color: var(--border); }
+.tmp-picker-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmp-picker-arrow { font-size: 10px; color: var(--text-light); transition: transform .15s; }
+.tmp-picker-arrow.open { transform: rotate(180deg); }
+.tmp-picker-dropdown {
+  position: absolute; top: 100%; left: 0; margin-top: 4px;
+  min-width: 100%; width: max-content;
+  background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); max-height: 180px; overflow-y: auto; z-index: 310;
+  padding: 4px; animation: tmpDropIn .12s ease;
+}
+@keyframes tmpDropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+.tmp-picker-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; font-size: 12px; color: var(--text); cursor: pointer;
+  border-radius: var(--radius); transition: var(--transition); white-space: nowrap;
+}
+.tmp-picker-opt:hover { background: var(--bg-hover); }
+.tmp-picker-opt.sel { color: var(--blue); font-weight: 500; background: var(--blue-bg); }
+.tmp-picker-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .tmp-foot { display: flex; justify-content: flex-end; gap: 6px; }
 .tmp-cancel, .tmp-confirm {
   padding: 5px 14px; border-radius: var(--radius); font-size: 12px;

@@ -2,7 +2,7 @@
   <!-- Desktop layout -->
   <div v-if="!ui.isMobile" :class="['main-layout', { 'goals-open': goalsOpen, 'review-open': reviewOpen }]">
     <TopBar @open-profile="profilePanel?.show()" @open-links="linksPanel?.show()"
-            @open-announcements="annPanel?.show()" :hasNewAnn="annPanel?.hasNew?.value" />
+            @open-announcements="annPanel?.show()" @open-ai="aiOpen = !aiOpen" :hasNewAnn="annPanel?.hasNew?.value" />
     <div class="main-body">
       <GoalsPanel @toggle="goalsOpen = !goalsOpen" @close="goalsOpen = false" />
       <div class="view-area">
@@ -23,6 +23,7 @@
       <div class="m-header-top">
         <div class="m-brand">Day<span>Trace</span></div>
         <div class="m-header-actions">
+          <button class="m-icon-btn" @click="aiOpen = !aiOpen">✨</button>
           <button class="m-icon-btn" @click="ui.toggleTheme()">{{ ui.theme === 'dark' ? '☀️' : '🌙' }}</button>
           <button class="m-icon-btn" @click="linksPanel?.show()">🔗</button>
           <button class="m-icon-btn m-avatar-btn" @click="profilePanel?.show()">
@@ -78,7 +79,8 @@
     <LinksPanel ref="linksPanel" />
   </div>
 
-  <!-- Global: reminder alert (works on both desktop & mobile) -->
+  <!-- Global overlays -->
+  <AiChatPanel :open="aiOpen" @close="aiOpen = false" />
   <ReminderAlert ref="reminderAlert" />
   <AnnouncementPanel ref="annPanel" />
   <FeedbackPanel ref="feedbackPanel" />
@@ -105,6 +107,7 @@ import MobileReview from '../components/MobileReview.vue'
 import ReminderAlert from '../components/ReminderAlert.vue'
 import AnnouncementPanel from '../components/AnnouncementPanel.vue'
 import FeedbackPanel from '../components/FeedbackPanel.vue'
+import AiChatPanel from '../components/AiChatPanel.vue'
 
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -120,6 +123,7 @@ const linksPanel = ref(null)
 const reminderAlert = ref(null)
 const annPanel = ref(null)
 const feedbackPanel = ref(null)
+const aiOpen = ref(false)
 
 const views = [
   { key: 'day', label: '天' },

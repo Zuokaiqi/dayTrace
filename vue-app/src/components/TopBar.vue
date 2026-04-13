@@ -21,6 +21,7 @@
       <span class="sync-icon">{{ syncIcon }}</span>
       <span class="sync-label">{{ syncLabel }}</span>
     </div>
+    <button class="nav-btn ai-btn" @click="$emit('open-ai')" title="AI 助手">✨</button>
     <button class="nav-btn" @click="ui.toggleTheme()" :title="ui.theme === 'dark' ? '切换亮色模式' : '切换深色模式'">
       {{ ui.theme === 'dark' ? '☀️' : '🌙' }}
     </button>
@@ -42,14 +43,18 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useUiStore } from '../stores/ui'
 import { useUndoStore } from '../stores/undo'
 import { useAuthStore } from '../stores/auth'
+import { useEventStore } from '../stores/events'
+import { useTaskStore } from '../stores/tasks'
 import { useSync } from '../composables/useSync'
 
 const ui = useUiStore()
 const undoStore = useUndoStore()
 const auth = useAuthStore()
+const eventStore = useEventStore()
+const taskStore = useTaskStore()
 const { syncStatus, pullFromServer } = useSync()
 
-defineEmits(['open-profile', 'open-links', 'open-announcements'])
+defineEmits(['open-profile', 'open-links', 'open-announcements', 'open-ai'])
 defineProps({ hasNewAnn: { type: Boolean, default: false } })
 
 const views = [
@@ -82,6 +87,7 @@ function manualSync() {
 }
 
 function onKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); eventStore.save(); taskStore.saveTasks(); taskStore.saveGoals(); return }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoStore.undo() }
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); undoStore.redo() }

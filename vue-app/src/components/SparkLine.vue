@@ -1,6 +1,6 @@
 <template>
   <div class="sparkline-wrap" ref="wrapRef">
-    <svg :viewBox="`0 0 ${svgW} ${svgH}`" preserveAspectRatio="xMidYMid meet">
+    <svg :viewBox="`0 0 ${svgW} ${svgH}`" preserveAspectRatio="xMinYMin meet" :style="{ width: '100%', height: height + 'px', display: 'block', overflow: 'hidden' }">
       <!-- Grid lines -->
       <line v-for="y in gridYs" :key="'g'+y" :x1="pad" :x2="svgW - pad" :y1="y" :y2="y"
         class="spark-grid" stroke-dasharray="3,3" />
@@ -17,7 +17,7 @@
       <!-- X-axis labels -->
       <text v-for="(p, i) in points" :key="'l'+i"
         :x="p.x" :y="svgH - 2" class="spark-label"
-        v-show="showLabel(i)">{{ labels[i] || '' }}</text>
+        v-if="showLabel(i)">{{ labels[i] || '' }}</text>
     </svg>
     <!-- Tooltip -->
     <div v-if="tipIdx >= 0" class="spark-tooltip" :style="tipStyle">

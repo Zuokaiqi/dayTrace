@@ -88,6 +88,15 @@ function notifyPushStart() {
 }
 
 /**
+ * Mark that local data is dirty (called from stores immediately on save,
+ * BEFORE the debounce timer fires). Blocks pulls during the debounce window
+ * so stale server data doesn't overwrite fresh local changes.
+ */
+function notifyDirty() {
+  _lastPushTime = Date.now()
+}
+
+/**
  * Start visibility-based auto-pull:
  * When user switches back to the tab, pull latest data
  */
@@ -125,6 +134,7 @@ export function useSync() {
     pullFromServer,
     startAutoSync,
     notifyPushStart,
-    notifyPushComplete
+    notifyPushComplete,
+    notifyDirty
   }
 }
