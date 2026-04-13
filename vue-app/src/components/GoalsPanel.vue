@@ -7,11 +7,11 @@
     </div>
     <div class="goals-body">
       <div class="goals-tabs">
-        <button :class="['goals-tab', { sel: tab === 'weekly' }]" @click="tab = 'weekly'">任务</button>
-        <button :class="['goals-tab', { sel: tab === 'gantt' }]" @click="tab = 'gantt'">甘特图</button>
+        <button :class="['goals-tab', { sel: tab === 'weekly' }]" @click="tab = 'weekly'">本周</button>
+        <button :class="['goals-tab', { sel: tab === 'overview' }]" @click="tab = 'overview'">总览</button>
       </div>
       <WeeklyTab v-if="tab === 'weekly'" />
-      <GanttTab v-else />
+      <OverviewTab v-else />
     </div>
   </div>
   <div class="task-collapse-tab" @click="$emit('toggle')" title="目标管理">
@@ -22,7 +22,7 @@
 <script setup>
 import { ref } from 'vue'
 import WeeklyTab from './WeeklyTab.vue'
-import GanttTab from './GanttTab.vue'
+import OverviewTab from './OverviewTab.vue'
 
 defineEmits(['close', 'toggle'])
 

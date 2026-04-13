@@ -3,22 +3,20 @@
     <div class="day-timeline" ref="scrollEl">
       <div class="day-frozen-header">
         <div class="ddl-todo-bar" >
-          <div
+          <label
             v-for="(it, idx) in todayTasks" :key="idx"
-            :class="['ddl-todo-item', { done: it.done, running: isTaskRunning(it) }]"
+            :class="['ddl-todo-item', { done: it.done }]"
             draggable="true"
             @dragstart="onDdlDragStart(it, $event)"
             @dragend="endTaskDrag()"
             @contextmenu.prevent="showDdlMenu(it, dk, $event)"
           >
+            <input type="checkbox" class="ddl-todo-cb" :checked="it.done"
+              @change="onTodoCb(it, $event.target.checked)">
             <span class="ddl-todo-dot" :style="{ background: it.tagColor }"></span>
+            <span v-if="it.repeat" class="ddl-repeat-icon" title="循环任务">🔁</span>
             <span class="ddl-todo-text">{{ it.label }}</span>
-            <button v-if="isTaskRunning(it)" class="ddl-exec-btn ddl-exec-stop" @click.stop="onExecStop()" title="结束执行">
-              <span class="ddl-exec-timer">{{ formatElapsed(elapsed) }}</span> ■
-            </button>
-            <button v-else-if="it.done" class="ddl-exec-btn ddl-exec-done" disabled>✓</button>
-            <button v-else class="ddl-exec-btn ddl-exec-start" @click.stop="onExecStart(it)" title="开始执行">▶</button>
-          </div>
+          </label>
           <div class="ddl-add-btn ddl-add-btn-h" @click.stop="onTodoBarClick($event)">+</div>
         </div>
         <div style="display:grid;grid-template-columns:56px 1fr 1fr;">
@@ -76,8 +74,7 @@ import { useUndoStore } from '../stores/undo'
 import { dateKey, SH, EH, SL, TAG_COLORS, t2m, y2m, m2t, pos, SNAP } from '../utils/time'
 import { calcOverlapLayout } from '../utils/layout'
 import { usePopover } from '../composables/usePopover'
-import { getTasksForDate, toggleDdlTodo, changeDdlDeadline, deleteDdlTodo, getTomorrowKey, getNextWeekKey } from '../composables/useDdlTodo'
-import { useExecution } from '../composables/useExecution'
+import { getTasksForDate, toggleDdlTodo, changeDdlDeadline, deleteDdlTodo, deleteDdlRepeatThis, deleteDdlRepeatFuture, getTomorrowKey, getNextWeekKey } from '../composables/useDdlTodo'
 import { createDragMoveHandler } from '../composables/useDragMove'
 import { setupResize } from '../composables/useResize'
 import { taskDrag, endTaskDrag, moveTaskDrag } from '../composables/useTaskDrag'
@@ -116,25 +113,8 @@ const ddlCtxMenu = ref(null)
 const taskMiniPop = ref(null)
 const taskEditPop = ref(null)
 
-const { activeEventId, elapsed, startFromDdlTask, stopExecution, formatElapsed } = useExecution()
 
-function isTaskRunning(item) {
-  if (!activeEventId.value) return false
-  // Check if the active event was started from this DDL task
-  const ev = eventStore.events.find(e => e.id === activeEventId.value)
-  if (!ev) return false
-  // Match by title (strip group prefix)
-  const taskName = item.label.split(' · ').pop()
-  return ev.title === taskName
-}
-
-function onExecStart(item) {
-  startFromDdlTask(item, dk.value)
-}
-
-function onExecStop() {
-  stopExecution()
-}
+function onTodoCb(item, checked) { toggleDdlTodo(item, checked) }
 
 function onDdlDragStart(item, e) {
   e.dataTransfer.effectAllowed = 'copyMove'
@@ -198,9 +178,18 @@ function showDdlMenu(item, dkRef, e) {
   menuItems.push(
     { act: 'tomorrow', icon: '📅', label: '挪到明天', fn() { changeDdlDeadline(item, getTomorrowKey(d)) } },
     { act: 'nextweek', icon: '📅', label: '挪到下周', fn() { changeDdlDeadline(item, getNextWeekKey(d)) } },
-    { act: 'done', icon: item.done ? '↩️' : '✅', label: item.done ? '标记未完成' : '标记完成', fn() { toggleDdlTodo(item, !item.done) } },
-    { act: 'delete', icon: '🗑', label: '删除', cls: 'ctx-danger', fn() { deleteDdlTodo(item) } }
+    { act: 'done', icon: item.done ? '↩️' : '✅', label: item.done ? '标记未完成' : '标记完成', fn() { toggleDdlTodo(item, !item.done) } }
   )
+  if (item.repeat) {
+    menuItems.push(
+      { act: 'delete-this', icon: '🗑', label: '删除此任务', cls: 'ctx-danger', fn() { deleteDdlRepeatThis(item, d) } },
+      { act: 'delete-future', icon: '🗑', label: '删除此任务及以后', cls: 'ctx-danger', fn() { deleteDdlRepeatFuture(item, d) } }
+    )
+  } else {
+    menuItems.push(
+      { act: 'delete', icon: '🗑', label: '删除', cls: 'ctx-danger', fn() { deleteDdlTodo(item) } }
+    )
+  }
 
   ddlCtxMenu.value?.show(e.clientX, e.clientY, menuItems)
 }
@@ -492,4 +481,5 @@ watch(() => ui.curDate, () => nextTick(scrollToNow))
   padding: 10px 14px; background: var(--bg);
   border-bottom: 1px solid var(--border-light); min-height: 20px;
 }
+.ddl-repeat-icon { font-size: 10px; margin-right: 2px; opacity: .7; }
 </style>

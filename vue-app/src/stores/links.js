@@ -9,6 +9,7 @@ export const useLinkStore = defineStore('links', () => {
   // Each link: { id, name, url, group, tags:[], starred, clicks, favicon, domain, createdAt }
   let nextLinkId = 1
   let _syncTimer = null
+  let _dirty = false
 
   function load() {
     try {
@@ -52,20 +53,27 @@ export const useLinkStore = defineStore('links', () => {
 
   function save() {
     localStorage.setItem('dt_links', JSON.stringify(links.value))
+    _dirty = true
+    localStorage.setItem('dt_links_dirty', '1')
+    const { notifyDirty } = useSync()
+    notifyDirty()
     clearTimeout(_syncTimer)
     _syncTimer = setTimeout(() => {
+      _dirty = false
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
       authFetch('/api/links', { method: 'POST', body: JSON.stringify({ links: links.value }) })
-        .then(() => notifyPushComplete(true))
+        .then(() => { localStorage.removeItem('dt_links_dirty'); notifyPushComplete(true) })
         .catch(() => notifyPushComplete(false))
     }, 600)
   }
 
   async function syncFromServer() {
+    if (_dirty) return false
     try {
       const resp = await authFetch('/api/links')
       if (!resp.ok) return false
+      if (_dirty) return false
       const d = await resp.json()
       if (d.links?.length) {
         // Migrate old format
@@ -162,6 +170,17 @@ export const useLinkStore = defineStore('links', () => {
   }
 
   load()
+  // Recover from interrupted push
+  if (localStorage.getItem('dt_links_dirty')) {
+    _dirty = true
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    _dirty = false
+    localStorage.removeItem('dt_links_dirty')
+    authFetch('/api/links', { method: 'POST', body: JSON.stringify({ links: links.value }) })
+      .then(() => notifyPushComplete(true))
+      .catch(() => notifyPushComplete(false))
+  }
 
   return {
     links, groups, save, saveGroups, load, syncFromServer,

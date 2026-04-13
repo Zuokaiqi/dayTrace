@@ -121,21 +121,30 @@ defineExpose({ show, hide })
   background: transparent;
 }
 .ctx-menu {
-  position: fixed; z-index: 300; min-width: 140px;
-  background: var(--bg); border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-  padding: 4px; animation: ctxIn .12s ease;
+  position: fixed; z-index: 300; min-width: 160px;
+  background: var(--bg);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.08), 0 16px 48px rgba(0,0,0,.12);
+  padding: 5px; animation: ctxIn .2s cubic-bezier(.16,1,.3,1);
+}
+html.dark .ctx-menu {
+  box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 4px 16px rgba(0,0,0,.3), 0 16px 48px rgba(0,0,0,.5);
 }
 .ctx-sub { z-index: 301; }
-@keyframes ctxIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+@keyframes ctxIn {
+  from { opacity: 0; transform: translateY(6px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
 .ctx-menu-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; font-size: 13px; color: var(--text);
-  cursor: pointer; border-radius: var(--radius); transition: var(--transition); white-space: nowrap;
+  padding: 7px 12px; font-size: 13px; color: var(--text);
+  cursor: pointer; border-radius: 8px; transition: all .12s ease; white-space: nowrap;
 }
 .ctx-menu-item:hover, .ctx-menu-item.sub-open { background: var(--bg-hover); }
+.ctx-menu-item:active { transform: scale(.98); }
+.ctx-menu-item.ctx-danger { color: var(--text-light); }
 .ctx-menu-item.ctx-danger:hover { background: var(--red-bg); color: var(--red); }
-.ctx-icon { font-size: 14px; flex-shrink: 0; }
+.ctx-icon { font-size: 14px; flex-shrink: 0; width: 20px; text-align: center; }
 .ctx-label { flex: 1; }
 .ctx-arrow { font-size: 14px; color: var(--text-light); margin-left: 8px; }
 </style>

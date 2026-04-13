@@ -12,6 +12,7 @@ import './styles/popover.css'
 import './styles/goals-panel.css'
 import './styles/review-panel.css'
 import './styles/mobile.css'
+import './styles/ai-panel.css'
 
 const app = createApp(App)
 app.use(createPinia())

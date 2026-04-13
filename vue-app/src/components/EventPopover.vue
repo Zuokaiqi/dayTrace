@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" :class="['popover', 'open']" :style="popStyle" ref="popEl" @mousedown.stop>
+    <div v-if="isOpen" :class="['popover', 'open']" :style="popStyle" ref="popEl" @mousedown.stop="onPopMousedown">
       <div class="pop-body">
         <input
           ref="titleInput"
@@ -44,12 +44,19 @@
         <!-- Repeat (only shown for plan column) -->
         <div v-if="form.col === 'plan'" class="pop-row">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l2 2-2 2M4 14l-2-2 2-2M14 4H6a4 4 0 000 8h4"/></svg>
-          <select v-model="form.repeat" class="pop-repeat-sel" @change="onRepeatChange">
-            <option value="">不重复</option>
-            <option value="daily">每天</option>
-            <option value="weekday">工作日</option>
-            <option value="weekly">每周</option>
-          </select>
+          <div class="pop-repeat-picker" ref="repeatPickerRef">
+            <div class="pop-repeat-trigger" @click="repeatDropOpen = !repeatDropOpen">
+              <span class="pop-repeat-text">{{ repeatLabel }}</span>
+              <span class="pop-repeat-arrow" :class="{ open: repeatDropOpen }">▾</span>
+            </div>
+            <div v-if="repeatDropOpen" class="pop-repeat-dropdown">
+              <div v-for="opt in repeatOpts" :key="opt.value"
+                :class="['pop-repeat-opt', { sel: form.repeat === opt.value }]"
+                @click="form.repeat = opt.value; repeatDropOpen = false; onRepeatChange()">
+                {{ opt.label }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="pop-foot">
@@ -102,6 +109,18 @@ const popStyle = ref({})
 const editId = ref(null)
 const editCol = ref('plan')
 const editViewDate = ref('')  // the date the user was viewing when editing a repeat event
+const repeatDropOpen = ref(false)
+const repeatPickerRef = ref(null)
+const repeatOpts = [
+  { value: '', label: '不重复' },
+  { value: 'daily', label: '每天' },
+  { value: 'weekday', label: '工作日' },
+  { value: 'weekly', label: '每周' }
+]
+const repeatLabel = computed(() => {
+  const o = repeatOpts.find(x => x.value === form.repeat)
+  return o ? o.label : '不重复'
+})
 
 const form = reactive({
   title: '',
@@ -175,7 +194,7 @@ function positionAt(anchor) {
   })
 }
 
-function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = '' }
+function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = ''; repeatDropOpen.value = false }
 
 // When repeat is selected, force plan column (repeat events only exist in plan)
 function onRepeatChange() {
@@ -341,6 +360,9 @@ function onKeydown(e) {
   if (e.key === 'Escape' && isOpen.value) close()
 }
 
+function onPopMousedown(e) {
+  if (repeatPickerRef.value && !repeatPickerRef.value.contains(e.target)) repeatDropOpen.value = false
+}
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
@@ -352,13 +374,31 @@ defineExpose({ openCreate, openEdit, close })
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   z-index: 199; background: transparent;
 }
-.pop-repeat-sel {
-  border: 1px solid transparent; border-radius: var(--radius);
-  padding: 4px 8px; font-family: inherit; font-size: 13px;
-  color: var(--text); background: transparent; outline: none;
-  cursor: pointer; transition: var(--transition);
+.pop-repeat-picker { position: relative; }
+.pop-repeat-trigger {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border: 1px solid var(--border-light); border-radius: var(--radius);
+  cursor: pointer; font-size: 13px; color: var(--text); background: var(--bg);
+  transition: var(--transition); user-select: none;
 }
-.pop-repeat-sel:hover { background: var(--bg-hover); }
+.pop-repeat-trigger:hover { background: var(--bg-hover); }
+.pop-repeat-text { flex: 1; }
+.pop-repeat-arrow { font-size: 10px; color: var(--text-light); transition: transform .15s; }
+.pop-repeat-arrow.open { transform: rotate(180deg); }
+.pop-repeat-dropdown {
+  position: absolute; top: 100%; left: 0; margin-top: 4px;
+  min-width: 100%; width: max-content;
+  background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); z-index: 310; padding: 4px;
+  animation: popRepeatIn .12s ease;
+}
+@keyframes popRepeatIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+.pop-repeat-opt {
+  padding: 6px 12px; font-size: 13px; color: var(--text); cursor: pointer;
+  border-radius: var(--radius); transition: var(--transition); white-space: nowrap;
+}
+.pop-repeat-opt:hover { background: var(--bg-hover); }
+.pop-repeat-opt.sel { color: var(--blue); font-weight: 500; background: var(--blue-bg); }
 
 /* Repeat choice dialog */
 .repeat-choice-overlay {

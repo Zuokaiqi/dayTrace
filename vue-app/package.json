@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dompurify": "^3.3.3",
+    "marked": "^18.0.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.17",
     "vue-router": "^4.6.4"

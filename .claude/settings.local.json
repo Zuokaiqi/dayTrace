@@ -1,9 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"\\\\.\\(vue|js\\)$\")",
-      "Bash(find . -name \"*.vue\" -type f -exec grep -l \"reflections\\\\|reflection\" {} \\\\;)",
-      "Bash(python -c ':*)"
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Agent(*)",
+      "Skill(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "NotebookEdit(*)",
+      "TodoWrite(*)",
+      "CronCreate(*)",
+      "CronDelete(*)",
+      "CronList(*)",
+      "RemoteTrigger(*)"
     ]
   }
 }

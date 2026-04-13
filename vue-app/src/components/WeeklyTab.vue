@@ -154,7 +154,7 @@ function nextWeekNav() {
 }
 
 function isInWeekRange(deadline) {
-  if (!deadline) return true
+  if (!deadline) return false
   const ws = new Date(goalsWeek.value + 'T00:00:00')
   const we = new Date(ws); we.setDate(we.getDate() + 6)
   const dl = new Date(deadline + 'T00:00:00')

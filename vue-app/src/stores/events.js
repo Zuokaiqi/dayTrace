@@ -31,6 +31,10 @@ export const useEventStore = defineStore('events', () => {
   function _syncToServer() {
     clearTimeout(_syncTimer)
     _dirty = true
+    localStorage.setItem('dt_events_dirty', '1')
+    // Immediately block pulls so stale server data can't overwrite during debounce
+    const { notifyDirty } = useSync()
+    notifyDirty()
     _syncTimer = setTimeout(() => {
       _pushNow()
     }, 500)
@@ -44,7 +48,7 @@ export const useEventStore = defineStore('events', () => {
     authFetch('/api/events', {
       method: 'POST',
       body: JSON.stringify({ events: events.value, nextId: nextId.value })
-    }).then(() => notifyPushComplete(true))
+    }).then(() => { localStorage.removeItem('dt_events_dirty'); notifyPushComplete(true) })
       .catch(() => notifyPushComplete(false))
   }
 
@@ -69,9 +73,13 @@ export const useEventStore = defineStore('events', () => {
   }
 
   async function syncFromServer() {
+    // Don't overwrite local changes that haven't been pushed yet
+    if (_dirty) return false
     try {
       const resp = await authFetch('/api/events')
       if (!resp.ok) return false
+      // Re-check after await: user may have edited while fetch was in-flight
+      if (_dirty) return false
       const data = await resp.json()
       if (data.events?.length > 0) {
         events.value = data.events
@@ -178,6 +186,11 @@ export const useEventStore = defineStore('events', () => {
 
   // Init
   load()
+  // Recover from interrupted push (e.g., page refresh during debounce window)
+  if (localStorage.getItem('dt_events_dirty')) {
+    _dirty = true
+    _pushNow()
+  }
 
   return {
     events, nextId,

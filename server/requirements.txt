@@ -2,3 +2,5 @@ flask
 flask-cors
 pymysql
 Pillow
+openai
+python-dotenv
