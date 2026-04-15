@@ -71,10 +71,10 @@ const syncIcon = computed(() => {
 })
 
 const syncLabel = computed(() => {
-  if (syncStatus.value === 'syncing') return '同步中'
-  if (syncStatus.value === 'success') return '已同步'
+  if (syncStatus.value === 'syncing') return '同步中...'
+  if (syncStatus.value === 'success') return '已保存'
   if (syncStatus.value === 'error') return '同步失败'
-  return '已同步'
+  return '已保存'
 })
 
 const syncTitle = computed(() => {
