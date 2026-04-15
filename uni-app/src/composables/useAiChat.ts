@@ -229,7 +229,8 @@ export function useAiChat() {
           }
         })
       })
-    } catch {
+    } catch (err) {
+      console.error('[useAiChat] send failed:', err)
       // error already set in assistantMsg
     }
 
@@ -262,7 +263,9 @@ export function useAiChat() {
           fail: reject
         })
       })
-    } catch {}
+    } catch (err: any) {
+      console.error('[useAiChat] _saveChat failed:', err?.errMsg || err)
+    }
   }
 
   async function loadChatList(): Promise<void> {
@@ -275,10 +278,12 @@ export function useAiChat() {
           url: apiBase + '/api/ai/chats',
           header: { Authorization: 'Bearer ' + token },
           success(res: any) { chatList.value = res.data?.chats || []; resolve() },
-          fail: () => resolve()
+          fail: (err) => { console.error('[useAiChat] loadChatList failed:', err?.errMsg); resolve() }
         })
       })
-    } catch {}
+    } catch (err) {
+      console.error('[useAiChat] loadChatList threw:', err)
+    }
   }
 
   async function loadChat(id: number): Promise<void> {
@@ -297,10 +302,12 @@ export function useAiChat() {
             }
             resolve()
           },
-          fail: () => resolve()
+          fail: (err) => { console.error('[useAiChat] loadChat failed:', err?.errMsg); resolve() }
         })
       })
-    } catch {}
+    } catch (err) {
+      console.error('[useAiChat] loadChat threw:', err)
+    }
   }
 
   async function deleteChat(id: number): Promise<void> {
@@ -318,10 +325,12 @@ export function useAiChat() {
             if (chatId.value === id) newChat()
             resolve()
           },
-          fail: () => resolve()
+          fail: (err) => { console.error('[useAiChat] deleteChat failed:', err?.errMsg); resolve() }
         })
       })
-    } catch {}
+    } catch (err) {
+      console.error('[useAiChat] deleteChat threw:', err)
+    }
   }
 
   function newChat(): void {
