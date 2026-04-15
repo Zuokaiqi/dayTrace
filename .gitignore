@@ -4,6 +4,8 @@ node_modules/
 # Build output
 vue-app/dist/
 uni-app/dist/
+uni-app/.uni/
+uni-app/unpackage/
 
 # Environment & secrets
 .env
