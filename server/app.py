@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request, send_from_directory, g, Response, stream_with_context
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from functools import wraps
 from werkzeug.utils import secure_filename
 import pymysql
@@ -22,12 +24,17 @@ app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max upload
 
+limiter = Limiter(key_func=get_remote_address, app=app, default_limits=[])
+
 # Avatar upload directory
 AVATAR_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'avatars'))
 os.makedirs(AVATAR_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'daytrace_secret_key_change_in_prod')
+_jwt_secret = os.environ.get('JWT_SECRET')
+if not _jwt_secret:
+    raise RuntimeError("JWT_SECRET environment variable is required")
+JWT_SECRET = _jwt_secret
 JWT_EXPIRE = 30 * 24 * 3600  # 30 days
 
 # ─── Doubao (豆包) LLM Config ───
@@ -37,12 +44,18 @@ ARK_BASE_URL = os.environ.get('ARK_BASE_URL', 'https://ark.cn-beijing.volces.com
 
 ark_client = OpenAI(api_key=ARK_API_KEY, base_url=ARK_BASE_URL) if ARK_API_KEY else None
 
+def _require_env(name):
+    val = os.environ.get(name)
+    if not val:
+        raise RuntimeError(f"{name} environment variable is required")
+    return val
+
 DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', '***REMOVED***'),
+    'host': _require_env('DB_HOST'),
     'port': int(os.environ.get('DB_PORT', 3306)),
-    'user': os.environ.get('DB_USER', 'rainbow'),
-    'password': os.environ.get('DB_PASS', '***REMOVED***'),
-    'database': os.environ.get('DB_NAME', 'daytrace'),
+    'user': _require_env('DB_USER'),
+    'password': _require_env('DB_PASS'),
+    'database': _require_env('DB_NAME'),
     'charset': 'utf8mb4'
 }
 
@@ -228,10 +241,12 @@ def init_db():
     except:
         pass
     # Set default admin
-    try:
-        cur.execute("UPDATE users SET is_admin=1 WHERE username='***REMOVED***'")
-    except:
-        pass
+    admin_username = os.environ.get('ADMIN_USERNAME', '')
+    if admin_username:
+        try:
+            cur.execute("UPDATE users SET is_admin=1 WHERE username=%s", (admin_username,))
+        except:
+            pass
     conn.commit()
     cur.close()
     conn.close()
@@ -257,6 +272,7 @@ if USE_VUE:
 # ─── Auth API ───
 
 @app.route('/api/register', methods=['POST'])
+@limiter.limit("5 per minute")
 def register():
     data = request.get_json()
     username = (data.get('username') or '').strip()
@@ -288,6 +304,7 @@ def register():
 
 
 @app.route('/api/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
     data = request.get_json()
     username = (data.get('username') or '').strip()
@@ -302,10 +319,10 @@ def login():
     cur.close(); conn.close()
 
     if not user:
-        return jsonify({'error': '用户名不存在'}), 401
+        return jsonify({'error': '用户名或密码错误'}), 401
     _, pw_hash = hash_password(password, user['salt'])
     if pw_hash != user['password_hash']:
-        return jsonify({'error': '密码错误'}), 401
+        return jsonify({'error': '用户名或密码错误'}), 401
 
     token = jwt_encode({'uid': user['id'], 'name': username, 'exp': time.time() + JWT_EXPIRE})
     return jsonify({'ok': True, 'token': token, 'username': username})
@@ -777,11 +794,11 @@ def delete_announcement(aid):
 
 # ─── Feedback API ───
 
-FEEDBACK_TO = os.environ.get('FEEDBACK_EMAIL', 'zuokaiqi0929@163.com')
+FEEDBACK_TO = os.environ.get('FEEDBACK_EMAIL', '')
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.163.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
-SMTP_USER = os.environ.get('SMTP_USER', 'zuokaiqi0929@163.com')
-SMTP_PASS = os.environ.get('SMTP_PASS', '***REMOVED***')
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
 
 @app.route('/api/feedback', methods=['POST'])
 @require_auth
