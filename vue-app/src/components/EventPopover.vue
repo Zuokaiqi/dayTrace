@@ -58,6 +58,33 @@
             </div>
           </div>
         </div>
+        <!-- Bind tasks -->
+        <div class="pop-row">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3v10"/><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
+          <div class="pop-task-picker" ref="taskPickerRef">
+            <div class="pop-repeat-trigger" @click="taskDropOpen = !taskDropOpen">
+              <span class="pop-repeat-text">{{ selectedTaskCount > 0 ? '已绑定 ' + selectedTaskCount + ' 个任务' : '绑定任务' }}</span>
+              <span class="pop-repeat-arrow" :class="{ open: taskDropOpen }">▾</span>
+            </div>
+            <div v-if="taskDropOpen" class="pop-task-dropdown">
+              <div v-if="!taskGroups.length" class="pop-task-empty">暂无任务</div>
+              <div v-for="group in taskGroups" :key="group.id"
+                :class="['pop-task-group', { 'sub-open': hoverGroup === group.id }]"
+                @mouseenter="hoverGroup = group.id"
+              >
+                <span class="pop-task-group-name">{{ group.title }}</span>
+                <span class="pop-task-group-count">{{ group.items.filter(w => isTaskSelected(w.id)).length }}/{{ group.items.length }}</span>
+                <span class="pop-task-arrow">›</span>
+              </div>
+            </div>
+            <div v-if="taskDropOpen && hoverGroupItems.length" class="pop-task-sub" @mouseleave="hoverGroup = null">
+              <label v-for="w in hoverGroupItems" :key="w.id" class="pop-task-item" @click.prevent="toggleTask(w.id)">
+                <input type="checkbox" :checked="isTaskSelected(w.id)" @click.stop="toggleTask(w.id)">
+                <span class="pop-task-item-title">{{ w.title }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="pop-foot">
         <button v-if="editId !== null" class="pbtn pbtn-del" @click="handleDelete">删除</button>
@@ -92,12 +119,14 @@
 import { ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useEventStore } from '../stores/events'
 import { useUndoStore } from '../stores/undo'
+import { useTaskStore } from '../stores/tasks'
 import { t2m, m2t, dateKey } from '../utils/time'
 import TimePicker from './TimePicker.vue'
 import DatePicker from './DatePicker.vue'
 
 const eventStore = useEventStore()
 const undoStore = useUndoStore()
+const taskStore = useTaskStore()
 
 const tags = { work: '工作', personal: '生活', admin: '事务' }
 
@@ -111,6 +140,9 @@ const editCol = ref('plan')
 const editViewDate = ref('')  // the date the user was viewing when editing a repeat event
 const repeatDropOpen = ref(false)
 const repeatPickerRef = ref(null)
+const taskDropOpen = ref(false)
+const taskPickerRef = ref(null)
+const selectedTaskIds = ref([])
 const repeatOpts = [
   { value: '', label: '不重复' },
   { value: 'daily', label: '每天' },
@@ -121,6 +153,31 @@ const repeatLabel = computed(() => {
   const o = repeatOpts.find(x => x.value === form.repeat)
   return o ? o.label : '不重复'
 })
+
+const taskGroups = computed(() => {
+  const groups = []
+  taskStore.monthlyGoals.forEach(g => {
+    const items = taskStore.weeklyTasks.filter(w => w.monthGoalId === g.id && !w.done)
+    if (items.length > 0) groups.push({ id: g.id, title: g.title, tag: g.tag, items })
+  })
+  const unlinked = taskStore.weeklyTasks.filter(w => !w.monthGoalId && !w.done)
+  if (unlinked.length > 0) groups.push({ id: '_unlinked', title: '未分组', tag: null, items: unlinked })
+  return groups
+})
+
+const hoverGroup = ref(null)
+const hoverGroupItems = computed(() => {
+  if (!hoverGroup.value) return []
+  const g = taskGroups.value.find(x => x.id === hoverGroup.value)
+  return g ? g.items : []
+})
+function isTaskSelected(tid) { return selectedTaskIds.value.includes(tid) }
+function toggleTask(tid) {
+  const idx = selectedTaskIds.value.indexOf(tid)
+  if (idx >= 0) selectedTaskIds.value.splice(idx, 1)
+  else selectedTaskIds.value.push(tid)
+}
+const selectedTaskCount = computed(() => selectedTaskIds.value.length)
 
 const form = reactive({
   title: '',
@@ -149,6 +206,7 @@ function openCreate(colType, start, end, date, anchor) {
   form.tag = 'work'
   form.note = ''
   form.repeat = ''
+  selectedTaskIds.value = []
   form.date = date || dateKey(new Date())
   isOpen.value = true
   positionAt(anchor)
@@ -170,6 +228,7 @@ function openEdit(id, col, anchor, viewDate) {
   form.tag = ev.tag
   form.note = (col === 'actual' && data.note) ? data.note : ''
   form.repeat = ev.repeat || ''
+  selectedTaskIds.value = [...(ev.linkedTaskIds || [])]
   form.date = ev.date
   isOpen.value = true
   positionAt(anchor)
@@ -194,7 +253,7 @@ function positionAt(anchor) {
   })
 }
 
-function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = ''; repeatDropOpen.value = false }
+function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = ''; repeatDropOpen.value = false; taskDropOpen.value = false; hoverGroup.value = null }
 
 // When repeat is selected, force plan column (repeat events only exist in plan)
 function onRepeatChange() {
@@ -231,14 +290,17 @@ function handleSave() {
       undoStore.pushUndo()
       if (repeatChoice.value === 'this') {
         // Fork: create standalone for this date only
-        eventStore.forkInstance(editId.value, editViewDate.value, {
+        const forked = eventStore.forkInstance(editId.value, editViewDate.value, {
           title: form.title.trim(), tag: form.tag,
+          linkedTaskIds: [...selectedTaskIds.value],
           plan: { start: form.start, end: form.end }
         })
+        if (forked) taskStore.linkEventToTasks(forked.id, selectedTaskIds.value)
       } else {
         // All: modify the original repeat event (affects this and future)
         ev.title = form.title.trim()
         ev.tag = form.tag
+        ev.linkedTaskIds = [...selectedTaskIds.value]
         ev.repeat = form.repeat || null
         if (ev.plan) {
           ev.plan.start = form.start
@@ -247,6 +309,7 @@ function handleSave() {
           ev.plan = { start: form.start, end: form.end }
         }
         eventStore.save()
+        taskStore.linkEventToTasks(editId.value, selectedTaskIds.value)
       }
       close()
       return
@@ -257,6 +320,7 @@ function handleSave() {
     ev.title = form.title.trim()
     ev.tag = form.tag
     ev.date = form.date
+    ev.linkedTaskIds = [...selectedTaskIds.value]
     ev.repeat = form.repeat || null
     if (form.col === 'plan') {
       if (!ev.plan) ev.plan = {}
@@ -269,18 +333,21 @@ function handleSave() {
       ev.actual.note = form.note.trim()
     }
     eventStore.save()
+    taskStore.linkEventToTasks(editId.value, selectedTaskIds.value)
   } else {
     undoStore.pushUndo()
     // Repeat events can only be created in plan
     const hasRepeat = !!form.repeat
-    eventStore.addEvent({
+    const newEv = eventStore.addEvent({
       title: form.title.trim(),
       tag: form.tag,
       date: form.date,
       repeat: form.repeat || null,
+      linkedTaskIds: [...selectedTaskIds.value],
       plan: (form.col === 'plan' || hasRepeat) ? { start: form.start, end: form.end } : null,
       actual: (form.col === 'actual' && !hasRepeat) ? { start: form.start, end: form.end, note: form.note.trim() } : null
     })
+    taskStore.linkEventToTasks(newEv.id, selectedTaskIds.value)
   }
   close()
 }
@@ -312,7 +379,8 @@ function handleDelete() {
         eventStore.addExclude(editId.value, viewDate)
       }
     } else {
-      // Stop repeat from this date onward
+      // Stop repeat from this date onward (if origin date, event is fully removed)
+      if (viewDate === ev.date) taskStore.unlinkEvent(editId.value)
       eventStore.stopRepeatFrom(editId.value, viewDate)
     }
     close()
@@ -323,8 +391,12 @@ function handleDelete() {
   undoStore.pushUndo()
   if (editCol.value === 'plan') ev.plan = null
   else ev.actual = null
-  if (!ev.plan && !ev.actual) eventStore.removeEvent(editId.value)
-  else eventStore.save()
+  if (!ev.plan && !ev.actual) {
+    taskStore.unlinkEvent(editId.value)
+    eventStore.removeEvent(editId.value)
+  } else {
+    eventStore.save()
+  }
   close()
 }
 
@@ -347,7 +419,8 @@ function handleStartExecution() {
   // For repeat instances: fork then add actual to the fork
   if (ev.repeat && editViewDate.value && editViewDate.value !== ev.date) {
     eventStore.forkInstance(editId.value, editViewDate.value, {
-      actual: actualTime
+      actual: actualTime,
+      linkedTaskIds: [...(ev.linkedTaskIds || [])]
     })
   } else {
     ev.actual = actualTime
@@ -362,6 +435,7 @@ function onKeydown(e) {
 
 function onPopMousedown(e) {
   if (repeatPickerRef.value && !repeatPickerRef.value.contains(e.target)) repeatDropOpen.value = false
+  if (taskPickerRef.value && !taskPickerRef.value.contains(e.target)) taskDropOpen.value = false
 }
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
@@ -425,4 +499,43 @@ defineExpose({ openCreate, openEdit, close })
   border: none; background: transparent; color: var(--text-light); font-size: 12px;
   cursor: pointer; padding: 4px 12px;
 }
+
+/* Task picker */
+.pop-task-picker { position: relative; flex: 1; }
+.pop-task-dropdown {
+  position: absolute; top: 100%; left: 0; margin-top: 4px;
+  min-width: 100%; width: max-content; max-height: 200px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); z-index: 310; padding: 4px;
+  animation: popRepeatIn .12s ease;
+}
+.pop-task-empty { padding: 12px; font-size: 13px; color: var(--text-light); text-align: center; }
+.pop-task-group {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px; cursor: pointer; border-radius: 8px;
+  font-size: 13px; color: var(--text); white-space: nowrap;
+  transition: all .12s ease;
+}
+.pop-task-group:hover, .pop-task-group.sub-open { background: var(--bg-hover); }
+.pop-task-group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pop-task-group-count { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+.pop-task-arrow { font-size: 14px; color: var(--text-light); margin-left: 8px; }
+.pop-task-sub {
+  position: absolute; top: 0; left: 100%; margin-left: 4px;
+  min-width: 180px; max-width: 260px; max-height: 240px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); z-index: 311; padding: 4px;
+  animation: popRepeatIn .12s ease;
+}
+.pop-task-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; cursor: pointer; border-radius: 8px;
+  font-size: 13px; color: var(--text); transition: all .12s ease;
+}
+.pop-task-item:hover { background: var(--bg-hover); }
+.pop-task-item input[type="checkbox"] {
+  width: 14px; height: 14px; border-radius: 3px; cursor: pointer;
+  accent-color: var(--blue); margin: 0; flex-shrink: 0;
+}
+.pop-task-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

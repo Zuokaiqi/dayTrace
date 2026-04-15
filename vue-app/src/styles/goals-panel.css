@@ -259,3 +259,19 @@
 }
 .weekly-group-header:hover .weekly-del { opacity: .5; }
 .weekly-group-header .weekly-del:hover { color: var(--red); background: var(--red-bg); opacity: 1; }
+
+/* ═══ Priority ═══ */
+.priority-pill {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+  flex-shrink: 0; line-height: 16px; letter-spacing: .02em;
+}
+.priority-pill.p0 { background: var(--p0-bg); color: var(--p0-text); }
+.priority-pill.p1 { background: var(--p1-bg); color: var(--p1-text); }
+.priority-pill.p2 { background: var(--p2-bg); color: var(--p2-text); }
+.priority-pill.p3 { background: var(--p3-bg); color: var(--p3-text); }
+
+/* Card priority tint — left border + subtle background */
+.weekly-card.wc-p0 { border-left: 3px solid var(--p0); background: var(--p0-bg); }
+.weekly-card.wc-p1 { border-left: 3px solid var(--p1); background: var(--p1-bg); }
+.weekly-card.wc-p3 { opacity: .7; }
+.weekly-card.wc-p3.done { opacity: .45; }

@@ -18,6 +18,14 @@
           @click="tag = key"
         >{{ label }}</span>
       </div>
+      <div class="tmp-tags">
+        <span
+          v-for="p in priorityOpts" :key="p.value"
+          :class="['tmp-tag', { sel: priority === p.value }]"
+          :style="priority === p.value ? `background:var(--p${p.value}-bg);color:var(--p${p.value}-text);border-color:var(--p${p.value})` : ''"
+          @click="priority = p.value"
+        >{{ p.label }}</span>
+      </div>
       <div class="tmp-date-row">
         <span class="tmp-date-label">截止</span>
         <DatePicker v-model="deadline" placeholder="选择日期" />
@@ -83,6 +91,7 @@ const popStyle = ref({})
 
 const name = ref('')
 const tag = ref('work')
+const priority = ref(2)
 const deadline = ref('')
 const repeat = ref('')
 const parentId = ref('')
@@ -110,6 +119,12 @@ const parentLabel = computed(() => {
 
 const tags = TAG_NAMES
 const tagColors = { work: 'var(--blue)', personal: 'var(--green)', admin: 'var(--orange)' }
+const priorityOpts = [
+  { value: 0, label: 'P0 紧急' },
+  { value: 1, label: 'P1 高' },
+  { value: 2, label: 'P2 中' },
+  { value: 3, label: 'P3 低' }
+]
 
 const goals = computed(() => taskStore.monthlyGoals)
 
@@ -123,13 +138,14 @@ function open(x, y, dk) {
   deadline.value = dk || ''
   name.value = ''
   tag.value = 'work'
+  priority.value = 2
   repeat.value = ''
   parentId.value = ''
   visible.value = true
 
   nextTick(() => {
     let top = y, left = x
-    const pw = 240
+    const pw = 280
     if (left + pw > window.innerWidth) left = window.innerWidth - pw - 8
     if (top + 260 > window.innerHeight) top = window.innerHeight - 264
     if (top < 4) top = 4
@@ -163,7 +179,7 @@ function doCreate() {
   // Create frozen task
   const frozenId = taskStore.taskNextId++
   const taskObj = {
-    id: frozenId, title, tag: tag.value, completed: false,
+    id: frozenId, title, tag: tag.value, priority: priority.value, completed: false,
     subtasks: [], createdAt: new Date().toISOString(), deadline: dl
   }
   if (repeat.value) taskObj.repeat = repeat.value
@@ -174,15 +190,21 @@ function doCreate() {
     // Create weeklyTask linked to group
     const goal = taskStore.monthlyGoals.find(g => g.id === gid)
     taskStore.weeklyTasks.push({
-      id: taskStore.wNextId++, title, tag: goal?.tag || tag.value,
+      id: taskStore.wNextId++, title, tag: goal?.tag || tag.value, priority: priority.value,
       monthGoalId: gid, month: (dl || ws).slice(0, 7), weekStart: ws,
       startDate: null, deadline: dl, done: false, frozenTaskId: frozenId
     })
   } else {
-    // Create new group
+    // Create new group + weeklyTask under it
+    const newGid = taskStore.mNextId++
     taskStore.monthlyGoals.push({
-      id: taskStore.mNextId++, title, tag: tag.value,
+      id: newGid, title, tag: tag.value,
       month: (dl || ws).slice(0, 7), done: false
+    })
+    taskStore.weeklyTasks.push({
+      id: taskStore.wNextId++, title, tag: tag.value, priority: priority.value,
+      monthGoalId: newGid, month: (dl || ws).slice(0, 7), weekStart: ws,
+      startDate: null, deadline: dl, done: false, frozenTaskId: frozenId
     })
   }
   taskStore.saveGoals()
@@ -194,7 +216,7 @@ defineExpose({ open, close })
 
 <style>
 .task-mini-pop {
-  position: fixed; z-index: 300; width: 240px;
+  position: fixed; z-index: 300; width: 280px;
   background: var(--bg); border: 1px solid var(--border-light);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
   padding: 12px; animation: tmpIn .15s ease;

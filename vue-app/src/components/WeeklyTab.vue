@@ -154,7 +154,7 @@ function nextWeekNav() {
 }
 
 function isInWeekRange(deadline) {
-  if (!deadline) return false
+  if (!deadline) return true
   const ws = new Date(goalsWeek.value + 'T00:00:00')
   const we = new Date(ws); we.setDate(we.getDate() + 6)
   const dl = new Date(deadline + 'T00:00:00')
@@ -231,12 +231,12 @@ function addTask(gid) {
   const tag = goal?.tag || 'work'
   const ws = goalsWeek.value
   const frozenId = taskStore.taskNextId++
-  taskStore.tasks.push({ id: frozenId, title: title.trim(), tag, completed: false, subtasks: [], deadline: null })
+  taskStore.tasks.push({ id: frozenId, title: title.trim(), tag, completed: false, subtasks: [], deadline: null, priority: 2 })
   taskStore.saveTasks()
   taskStore.weeklyTasks.push({
     id: taskStore.wNextId++, title: title.trim(), tag,
     monthGoalId: gid || null, month: ws.slice(0, 7), weekStart: ws,
-    startDate: null, deadline: null, done: false, frozenTaskId: frozenId
+    startDate: null, deadline: null, done: false, frozenTaskId: frozenId, priority: 2
   })
   taskStore.saveGoals()
 }

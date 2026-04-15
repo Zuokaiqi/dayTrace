@@ -37,6 +37,12 @@
 
   /* Transition */
   --transition: all .15s ease;
+
+  /* Priority */
+  --p0: #f53f3f;  --p0-bg: rgba(245,63,63,.08);  --p0-text: #cb2634;
+  --p1: #ff7d00;  --p1-bg: rgba(255,125,0,.08);   --p1-text: #d25f00;
+  --p2: #3370ff;  --p2-bg: rgba(51,112,255,.08);   --p2-text: #1a3d8f;
+  --p3: #8f959e;  --p3-bg: rgba(143,149,158,.10);  --p3-text: #6b7075;
 }
 
 /* ═══ Dark Mode ═══ */
@@ -56,4 +62,8 @@ html.dark {
   --shadow-sm: 0 1px 2px rgba(0,0,0,.2);
   --shadow-md: 0 4px 12px rgba(0,0,0,.3);
   --shadow-lg: 0 8px 24px rgba(0,0,0,.4);
+  --p0: #f76560;  --p0-bg: rgba(247,101,96,.12);  --p0-text: #f76560;
+  --p1: #ff9a2e;  --p1-bg: rgba(255,154,46,.12);   --p1-text: #ff9a2e;
+  --p2: #5b8fff;  --p2-bg: rgba(91,143,255,.12);   --p2-text: #5b8fff;
+  --p3: #6c6c80;  --p3-bg: rgba(108,108,128,.12);  --p3-text: #6c6c80;
 }

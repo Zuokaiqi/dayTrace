@@ -15,7 +15,8 @@
       <div v-if="!collapsed[g.id]" class="ov-tasks">
         <label v-for="w in groupItems(g.id)" :key="w.id"
           :class="['ov-task', { done: w.done }]"
-          @contextmenu.prevent="showTaskMenu(w, $event)">
+          @contextmenu.prevent="showTaskMenu(w, $event)"
+          @mousedown="onTaskMousedown(w, $event)">
           <input type="checkbox" class="ov-cb" :checked="w.done" @change="onToggle(w.id, $event.target.checked)">
           <span class="ov-task-title">{{ w.title }}</span>
           <span v-if="w.deadline" class="ov-task-ddl">{{ fmtDdl(w.deadline) }}</span>
@@ -37,7 +38,8 @@
       <div v-if="!collapsed['_unlinked']" class="ov-tasks">
         <label v-for="w in unlinkedItems" :key="w.id"
           :class="['ov-task', { done: w.done }]"
-          @contextmenu.prevent="showTaskMenu(w, $event)">
+          @contextmenu.prevent="showTaskMenu(w, $event)"
+          @mousedown="onTaskMousedown(w, $event)">
           <input type="checkbox" class="ov-cb" :checked="w.done" @change="onToggle(w.id, $event.target.checked)">
           <span class="ov-task-title">{{ w.title }}</span>
           <span v-if="w.deadline" class="ov-task-ddl">{{ fmtDdl(w.deadline) }}</span>
@@ -51,10 +53,11 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, nextTick } from 'vue'
+import { ref, computed, reactive, nextTick, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '../stores/tasks'
 import { useUndoStore } from '../stores/undo'
 import { TAG_COLORS } from '../utils/time'
+import { startTaskDrag, moveTaskDrag, endTaskDrag, taskDrag } from '../composables/useTaskDrag'
 import ContextMenu from './ContextMenu.vue'
 import TaskEditPop from './TaskEditPop.vue'
 
@@ -135,6 +138,45 @@ function deleteGroup(gid) {
   taskStore.monthlyGoals = taskStore.monthlyGoals.filter(x => x.id !== gid)
   taskStore.saveGoals()
 }
+
+// ─── Calendar drag (mousedown-based) ───
+let mDown = false, mStartX = 0, mStartY = 0, mDragging = false, mTask = null
+
+function onTaskMousedown(w, e) {
+  if (e.button !== 0) return
+  if (e.target.closest('.ov-cb,button,input,select')) return
+  mDown = true; mStartX = e.clientX; mStartY = e.clientY; mDragging = false; mTask = w
+}
+
+function onDocMousemove(e) {
+  if (!mDown) return
+  if (!mDragging) {
+    if (Math.abs(e.clientX - mStartX) < 6 && Math.abs(e.clientY - mStartY) < 6) return
+    mDragging = true
+    startTaskDrag(mTask.title, mTask.tag, e)
+  }
+  moveTaskDrag(e)
+}
+
+function onDocMouseup() {
+  if (!mDown) return
+  mDown = false
+  if (!mDragging) { mTask = null; return }
+  mDragging = false
+  mTask = null
+  setTimeout(() => {
+    if (taskDrag.active) endTaskDrag()
+  }, 10)
+}
+
+onMounted(() => {
+  document.addEventListener('mousemove', onDocMousemove)
+  document.addEventListener('mouseup', onDocMouseup)
+})
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDocMousemove)
+  document.removeEventListener('mouseup', onDocMouseup)
+})
 </script>
 
 <style>
