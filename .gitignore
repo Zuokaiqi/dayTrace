@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 vue-app/dist/
+uni-app/dist/
 
 # Environment & secrets
 .env
