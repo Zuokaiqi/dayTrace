@@ -108,3 +108,57 @@ html.dark .ev.plan-only-ev { color: var(--blue); opacity: .7; }
 }
 body.task-dragging .day-col,
 body.task-dragging .week-col { background: var(--blue-bg); }
+
+/* Column header subtitle */
+.col-header-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-light);
+  margin-top: 2px;
+  opacity: .8;
+}
+
+/* Crosshair cursor on empty column area */
+.day-col:hover { cursor: crosshair; }
+.day-col .ev { cursor: grab; }
+.day-col .ev:active { cursor: grabbing; }
+
+/* Drag-create hint text */
+.drag-create-hint {
+  position: absolute;
+  top: 100px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-light);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+  user-select: none;
+  z-index: 2;
+  letter-spacing: .02em;
+}
+.day-col:hover .drag-create-hint { opacity: .28; }
+body.task-dragging .drag-create-hint { opacity: 0 !important; }
+
+/* Day empty state */
+.day-col-empty {
+  position: absolute;
+  top: 140px;
+  left: 0; right: 0;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 13px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 3;
+  line-height: 1.5;
+}
+.day-col-empty-sub {
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: .7;
+}

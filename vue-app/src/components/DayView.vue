@@ -21,8 +21,14 @@
         </div>
         <div style="display:grid;grid-template-columns:56px 1fr 1fr;">
           <div style="background:var(--bg);border-bottom:1px solid var(--border);padding:8px;"></div>
-          <div class="col-header plan-h">PLANNED · 计划执行</div>
-          <div class="col-header actual-h">ACTUAL · 实际发生</div>
+          <div class="col-header plan-h">
+            PLANNED · 计划执行
+            <span class="col-header-sub">打算做的事</span>
+          </div>
+          <div class="col-header actual-h">
+            ACTUAL · 实际发生
+            <span class="col-header-sub">真正做的事</span>
+          </div>
         </div>
       </div>
       <div class="day-grid" ref="gridEl">
@@ -34,6 +40,11 @@
         <div class="day-col plan-col" ref="planColRef" :style="{ height: colH + 'px' }" @mousedown="onPlanMousedown" @dragover.prevent="onGridDragOver($event)" @drop="onGridDrop('plan', $event)">
           <div class="drag-ghost"></div>
           <div class="ev-drop-preview"></div>
+          <div class="drag-create-hint">拖拽创建计划</div>
+          <div v-if="!planEvs.length && !actualEvs.length" class="day-col-empty">
+            <div>今天还没有计划</div>
+            <div class="day-col-empty-sub">拖拽空白区域创建</div>
+          </div>
           <div v-for="i in totalSlots" :key="i" :class="['grid-line', { hour: (i - 1) % 2 === 0 }]"></div>
           <EventBlock
             v-for="ev in planEvs" :key="ev.id"
@@ -47,6 +58,7 @@
         <div class="day-col actual-col" ref="actualColRef" :style="{ height: colH + 'px' }" @mousedown="onActualMousedown" @dragover.prevent="onGridDragOver($event)" @drop="onGridDrop('actual', $event)">
           <div class="drag-ghost"></div>
           <div class="ev-drop-preview"></div>
+          <div class="drag-create-hint">拖拽创建实际</div>
           <div v-for="i in totalSlots" :key="i" :class="['grid-line', { hour: (i - 1) % 2 === 0 }]"></div>
           <EventBlock
             v-for="ev in actualEvs" :key="ev.id"
