@@ -52,6 +52,7 @@
         <DayView v-if="ui.view === 'day'" />
         <WeekView v-else-if="ui.view === 'week'" />
         <MonthView v-else />
+        <button class="m-fab" @click="openFabCreate" aria-label="新建日程">+</button>
       </template>
       <div v-else-if="ui.mobileTab === 'tasks'" class="m-panel-wrap">
         <MobileGoals />
@@ -89,6 +90,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useUiStore } from '../stores/ui'
+import { dateKey, EH } from '../utils/time'
 import { useAuthStore } from '../stores/auth'
 import { useSync } from '../composables/useSync'
 import { useReminder } from '../composables/useReminder'
@@ -124,6 +126,17 @@ const reminderAlert = ref(null)
 const annPanel = ref(null)
 const feedbackPanel = ref(null)
 const aiOpen = ref(false)
+
+function openFabCreate() {
+  const now = new Date()
+  const startH = now.getHours()
+  const startM = now.getMinutes() >= 30 ? 30 : 0
+  const startMin = startH * 60 + startM
+  const endMin = Math.min(startMin + 60, EH * 60)
+  const fmt = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')
+  const dk = dateKey(ui.curDate)
+  popoverComp.value?.openCreate('plan', fmt(startMin), fmt(endMin), dk, null)
+}
 
 const views = [
   { key: 'day', label: '天' },
@@ -237,4 +250,30 @@ onUnmounted(() => {
 .m-tab.active { color: var(--blue); }
 .m-tab-icon { font-size: 18px; line-height: 1; }
 .m-tab-label { font-size: 10px; font-weight: 500; }
+
+/* FAB */
+.m-fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+}
+.m-fab:active {
+  transform: scale(.93);
+  box-shadow: var(--shadow-md);
+}
 </style>

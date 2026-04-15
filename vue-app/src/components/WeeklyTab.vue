@@ -5,7 +5,10 @@
     <button class="goals-nav-btn" @click="nextWeekNav">›</button>
   </div>
   <div class="goals-list" ref="listEl">
-    <div v-if="!displayGoals.length && !unlinkedItems.length" class="goals-empty">本周暂无任务</div>
+    <div v-if="!displayGoals.length && !unlinkedItems.length" class="goals-empty">
+      <div>本周暂无任务</div>
+      <div class="goals-empty-sub">添加第一个任务，开始规划你的目标</div>
+    </div>
 
     <!-- Groups -->
     <div
