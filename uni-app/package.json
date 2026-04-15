@@ -5,6 +5,8 @@
     "dev:h5": "uni",
     "build:h5": "uni build",
     "dev:mp-weixin": "uni --platform mp-weixin",
+    "build:mp-weixin": "uni build --platform mp-weixin",
+    "dev:app": "uni --platform app",
     "build:app": "uni build --platform app"
   },
   "dependencies": {
