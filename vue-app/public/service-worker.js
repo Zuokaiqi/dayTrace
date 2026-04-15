@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daytrace-v1'
+const CACHE_NAME = 'daytrace-v2'
 
 // Install: cache the app shell
 self.addEventListener('install', e => {

@@ -5,7 +5,7 @@
         <div class="ddl-todo-bar" >
           <label
             v-for="(it, idx) in todayTasks" :key="idx"
-            :class="['ddl-todo-item', { done: it.done }]"
+            :class="['ddl-todo-item', 'ddl-p' + it.priority, { done: it.done }]"
             draggable="true"
             @dragstart="onDdlDragStart(it, $event)"
             @dragend="endTaskDrag()"
@@ -400,6 +400,11 @@ function onCtxEvent(id, col, e) {
   const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const items = []
 
+  items.push({ act: 'edit', icon: '📝', label: '编辑', fn() {
+    const rect = e.target.closest('.ev')?.getBoundingClientRect()
+    openEdit(id, col, rect ? { x: rect.right, y: rect.top } : { x: e.clientX, y: e.clientY }, dk.value)
+  }})
+
   // Move actions: for repeat instances, fork then move the fork
   items.push({ act: 'tomorrow', icon: '📅', label: '挪到明天', fn() {
     undoStore.pushUndo()
@@ -444,7 +449,7 @@ function onCtxEvent(id, col, e) {
     items.push({ act: 'delete', icon: '🗑', label: '删除', cls: 'ctx-danger', fn() {
       undoStore.pushUndo()
       if (col === 'plan') ev.plan = null; else ev.actual = null
-      if (!ev.plan && !ev.actual) eventStore.removeEvent(id); else eventStore.save()
+      if (!ev.plan && !ev.actual) { taskStore.unlinkEvent(id); eventStore.removeEvent(id) } else eventStore.save()
     }})
   }
 

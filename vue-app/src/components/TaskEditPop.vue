@@ -25,6 +25,17 @@
         </div>
       </div>
       <div class="tep-field">
+        <label class="tep-label">优先级</label>
+        <div class="tep-tags">
+          <span
+            v-for="p in priorityOpts" :key="p.value"
+            :class="['tep-priority', { sel: form.priority === p.value }]"
+            :style="form.priority === p.value ? `background:var(--p${p.value}-bg);color:var(--p${p.value}-text);border-color:var(--p${p.value})` : ''"
+            @click="form.priority = p.value"
+          >{{ p.label }}</span>
+        </div>
+      </div>
+      <div class="tep-field">
         <label class="tep-label">开始日期</label>
         <DatePicker v-model="form.startDate" placeholder="选择开始日期" />
       </div>
@@ -107,6 +118,12 @@ const repeatOpts = [
   { value: 'weekday', label: '工作日' },
   { value: 'weekly', label: '每周' }
 ]
+const priorityOpts = [
+  { value: 0, label: 'P0 紧急' },
+  { value: 1, label: 'P1 高' },
+  { value: 2, label: 'P2 中' },
+  { value: 3, label: 'P3 低' }
+]
 const tagNames = TAG_NAMES
 const tagColors = TAG_COLORS
 
@@ -116,7 +133,8 @@ const form = reactive({
   startDate: '',
   deadline: '',
   repeat: '',
-  monthGoalId: null
+  monthGoalId: null,
+  priority: 2
 })
 
 let editWid = null
@@ -141,6 +159,7 @@ function open(w, x, y) {
   form.startDate = w.startDate || ''
   form.deadline = w.deadline || ''
   form.monthGoalId = w.monthGoalId || null
+  form.priority = w.priority ?? 2
   // Load repeat from frozen task
   const frozen = taskStore.findFrozenMatch(w)
   form.repeat = (frozen && !frozen.sub ? frozen.task.repeat : '') || ''
@@ -176,11 +195,13 @@ function doSave() {
     m.task.tag = form.tag
     m.task.deadline = form.deadline || null
     m.task.repeat = form.repeat || null
+    m.task.priority = form.priority
     if (!form.repeat) { delete m.task.repeatEnd; delete m.task.excludes }
   } else if (m && m.sub) {
     m.sub.title = title
     m.sub.label = title
     m.sub.deadline = form.deadline || null
+    m.sub.priority = form.priority
   }
   taskStore.saveTasks()
 
@@ -190,6 +211,7 @@ function doSave() {
   w.startDate = form.startDate || null
   w.deadline = form.deadline || null
   w.monthGoalId = form.monthGoalId || null
+  w.priority = form.priority
 
   // If group changed, update tag from group
   if (form.monthGoalId) {
@@ -240,13 +262,13 @@ html.dark .task-edit-pop {
 }
 .tep-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(51,112,255,.08); }
 .tep-tags { display: flex; gap: 6px; }
-.tep-tag {
+.tep-tag, .tep-priority {
   padding: 4px 12px; border-radius: 14px; font-size: 11px; font-weight: 500;
   border: 1.5px solid var(--border-light); background: transparent;
   color: var(--text-light); cursor: pointer; transition: all .15s ease;
 }
-.tep-tag:hover { border-color: var(--border); color: var(--text-secondary); }
-.tep-tag.sel { border-color: currentColor; }
+.tep-tag:hover, .tep-priority:hover { border-color: var(--border); color: var(--text-secondary); }
+.tep-tag.sel, .tep-priority.sel { border-color: currentColor; }
 .tep-group-picker { position: relative; }
 .tep-group-trigger {
   display: flex; align-items: center; gap: 6px;

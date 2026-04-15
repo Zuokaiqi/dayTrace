@@ -126,6 +126,7 @@ export const useEventStore = defineStore('events', () => {
   // ─── Mutations ───
   function addEvent(ev) {
     ev.id = nextId.value++
+    if (!ev.linkedTaskIds) ev.linkedTaskIds = []
     events.value.push(ev)
     save()
     return ev

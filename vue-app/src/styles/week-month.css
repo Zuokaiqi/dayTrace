@@ -56,6 +56,11 @@
   font-size: 13px; color: var(--text); cursor: pointer;
   transition: var(--transition); background: var(--bg-hover); user-select: none;
 }
+.ddl-todo-item.ddl-p0 { background: var(--p0-bg); color: var(--p0-text); font-weight: 500; }
+.ddl-todo-item.ddl-p0 .ddl-todo-text { color: var(--p0-text); }
+.ddl-todo-item.ddl-p1 { background: var(--p1-bg); color: var(--p1-text); }
+.ddl-todo-item.ddl-p1 .ddl-todo-text { color: var(--p1-text); }
+.ddl-todo-item.ddl-p3 { opacity: .6; }
 .ddl-todo-item.done { opacity: .5; }
 .ddl-todo-item.done .ddl-todo-text { text-decoration: line-through; color: var(--text-light); }
 .ddl-todo-cb { width: 15px; height: 15px; border-radius: 4px; cursor: pointer; flex-shrink: 0; accent-color: var(--blue); margin: 0; }

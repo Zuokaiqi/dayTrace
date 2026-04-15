@@ -1,6 +1,6 @@
 <template>
   <div
-    :class="['weekly-card', { done: task.done }]"
+    :class="['weekly-card', 'wc-p' + (task.priority ?? 2), { done: task.done }]"
     draggable="true"
     @dragstart="onDragStart"
     @dragover.prevent="onDragOver"
@@ -32,6 +32,7 @@
         @click.stop
       >
       <span v-else class="weekly-title">{{ task.title }}</span>
+      <span class="priority-pill" :class="'p' + (task.priority ?? 2)">P{{ task.priority ?? 2 }}</span>
       <span class="goal-tag" :style="{ background: tagColor }">{{ tagName }}</span>
       <button class="weekly-del" @click.stop="$emit('delete')">✕</button>
     </div>

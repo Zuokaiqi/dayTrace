@@ -18,7 +18,8 @@ export function getTasksForDate(dk) {
             type: 'sub', taskId: t.id, subIdx: si,
             label: t.title + ' · ' + (s.title || s.label || ''),
             done: s.done,
-            tagColor: TAG_COLORS[t.tag] || 'var(--text-light)'
+            tagColor: TAG_COLORS[t.tag] || 'var(--text-light)',
+            priority: s.priority ?? t.priority ?? 2
           })
         }
       })
@@ -38,6 +39,7 @@ export function getTasksForDate(dk) {
       type: 'task', taskId: t.id, subIdx: -1,
       label, done: isRepeatInstance ? false : taskStore.isTaskCompleted(t),
       tagColor: TAG_COLORS[t.tag] || 'var(--text-light)',
+      priority: t.priority ?? 2,
       repeat: t.repeat || null,
       _isRepeatInstance: isRepeatInstance,
       _viewDate: isRepeatInstance ? dk : null
@@ -49,7 +51,8 @@ export function getTasksForDate(dk) {
           type: 'sub', taskId: t.id, subIdx: si,
           label: t.title + ' · ' + (s.title || s.label || ''),
           done: s.done,
-          tagColor: TAG_COLORS[t.tag] || 'var(--text-light)'
+          tagColor: TAG_COLORS[t.tag] || 'var(--text-light)',
+          priority: s.priority ?? t.priority ?? 2
         })
       }
     })

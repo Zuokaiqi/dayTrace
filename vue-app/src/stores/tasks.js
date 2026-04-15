@@ -223,6 +223,31 @@ export const useTaskStore = defineStore('tasks', () => {
     return task.subtasks.every(s => s.done)
   }
 
+  // ─── Event-task bidirectional binding ───
+  function linkEventToTasks(eventId, taskIds) {
+    weeklyTasks.value.forEach(w => {
+      if (!w.linkedEventIds) w.linkedEventIds = []
+      w.linkedEventIds = w.linkedEventIds.filter(eid => eid !== eventId)
+    })
+    taskIds.forEach(tid => {
+      const w = weeklyTasks.value.find(x => x.id === tid)
+      if (w) {
+        if (!w.linkedEventIds) w.linkedEventIds = []
+        if (!w.linkedEventIds.includes(eventId)) w.linkedEventIds.push(eventId)
+      }
+    })
+    saveGoals()
+  }
+
+  function unlinkEvent(eventId) {
+    weeklyTasks.value.forEach(w => {
+      if (w.linkedEventIds) {
+        w.linkedEventIds = w.linkedEventIds.filter(eid => eid !== eventId)
+      }
+    })
+    saveGoals()
+  }
+
   // ─── Sync toggle done ───
   function toggleWeeklyDone(wid, done) {
     const w = weeklyTasks.value.find(x => x.id === wid)
@@ -274,6 +299,7 @@ export const useTaskStore = defineStore('tasks', () => {
     loadGoals, saveGoals, syncGoalsFromServer,
     findFrozenMatch, migrateFrozenTaskIds, isTaskCompleted,
     toggleWeeklyDone,
+    linkEventToTasks, unlinkEvent,
     matchesTaskRepeat, addTaskExclude, stopTaskRepeatFrom, forkTaskInstance
   }
 })
