@@ -253,6 +253,20 @@ def init_db():
 
 # ─── Static Files ───
 
+# uni-app H5 移动端
+UNI_H5_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uni-app', 'dist', 'build', 'h5'))
+
+@app.route('/m/')
+def serve_uni_index():
+    return send_from_directory(UNI_H5_DIR, 'index.html')
+
+@app.route('/m/<path:path>')
+def serve_uni_static(path):
+    full_path = os.path.join(UNI_H5_DIR, path)
+    if os.path.isfile(full_path):
+        return send_from_directory(UNI_H5_DIR, path)
+    return send_from_directory(UNI_H5_DIR, 'index.html')
+
 @app.route('/')
 def serve_index():
     return send_from_directory(STATIC_DIR, 'index.html')
