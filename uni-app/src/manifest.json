@@ -48,6 +48,11 @@
     "usingComponents": true
   },
   "h5": {
+    "publicPath": "/m/",
+    "router": {
+      "mode": "hash",
+      "base": "/m/"
+    },
     "devServer": {
       "port": 3002,
       "disableHostCheck": true,
