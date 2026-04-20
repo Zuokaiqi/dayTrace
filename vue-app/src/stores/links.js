@@ -10,6 +10,8 @@ export const useLinkStore = defineStore('links', () => {
   let nextLinkId = 1
   let _syncTimer = null
   let _dirty = false
+  let _pushInFlight = false
+  let _lastDirtyTime = 0
 
   function load() {
     try {
@@ -54,27 +56,44 @@ export const useLinkStore = defineStore('links', () => {
   function save() {
     localStorage.setItem('dt_links', JSON.stringify(links.value))
     _dirty = true
+    _lastDirtyTime = Date.now()
     localStorage.setItem('dt_links_dirty', '1')
     const { notifyDirty } = useSync()
     notifyDirty()
     clearTimeout(_syncTimer)
-    _syncTimer = setTimeout(() => {
-      _dirty = false
-      const { notifyPushStart, notifyPushComplete } = useSync()
-      notifyPushStart()
-      authFetch('/api/links', { method: 'POST', body: JSON.stringify({ links: links.value }) })
-        .then(() => { localStorage.removeItem('dt_links_dirty'); notifyPushComplete(true) })
-        .catch(() => notifyPushComplete(false))
-    }, 600)
+    _syncTimer = setTimeout(_pushNow, 600)
+  }
+
+  function _pushNow() {
+    if (_pushInFlight || !_dirty) return
+    _pushInFlight = true
+    const pushStart = Date.now()
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    authFetch('/api/links', { method: 'POST', body: JSON.stringify({ links: links.value }) })
+      .then(() => {
+        _pushInFlight = false
+        if (_lastDirtyTime <= pushStart) {
+          _dirty = false
+          localStorage.removeItem('dt_links_dirty')
+        }
+        notifyPushComplete(true)
+        if (_dirty) _pushNow()
+      })
+      .catch(() => {
+        _pushInFlight = false
+        notifyPushComplete(false)
+      })
   }
 
   async function syncFromServer() {
-    if (_dirty) return false
+    if (_dirty || _pushInFlight) return false
     try {
       const resp = await authFetch('/api/links')
       if (!resp.ok) return false
-      if (_dirty) return false
+      if (_dirty || _pushInFlight) return false
       const d = await resp.json()
+      if (_dirty || _pushInFlight) return false
       if (d.links?.length) {
         // Migrate old format
         links.value = d.links.map((l, i) => ({
@@ -173,13 +192,7 @@ export const useLinkStore = defineStore('links', () => {
   // Recover from interrupted push
   if (localStorage.getItem('dt_links_dirty')) {
     _dirty = true
-    const { notifyPushStart, notifyPushComplete } = useSync()
-    notifyPushStart()
-    _dirty = false
-    localStorage.removeItem('dt_links_dirty')
-    authFetch('/api/links', { method: 'POST', body: JSON.stringify({ links: links.value }) })
-      .then(() => notifyPushComplete(true))
-      .catch(() => notifyPushComplete(false))
+    _pushNow()
   }
 
   return {

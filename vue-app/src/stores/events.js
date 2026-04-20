@@ -10,6 +10,8 @@ export const useEventStore = defineStore('events', () => {
 
   let _syncTimer = null
   let _dirty = false
+  let _pushInFlight = false
+  let _lastDirtyTime = 0
 
   // ─── Local persistence ───
   function load() {
@@ -31,6 +33,7 @@ export const useEventStore = defineStore('events', () => {
   function _syncToServer() {
     clearTimeout(_syncTimer)
     _dirty = true
+    _lastDirtyTime = Date.now()
     localStorage.setItem('dt_events_dirty', '1')
     // Immediately block pulls so stale server data can't overwrite during debounce
     const { notifyDirty } = useSync()
@@ -41,15 +44,26 @@ export const useEventStore = defineStore('events', () => {
   }
 
   function _pushNow() {
-    if (!_dirty) return
-    _dirty = false
+    if (_pushInFlight || !_dirty) return
+    _pushInFlight = true
+    const pushStart = Date.now()
     const { notifyPushStart, notifyPushComplete } = useSync()
     notifyPushStart()
     authFetch('/api/events', {
       method: 'POST',
       body: JSON.stringify({ events: events.value, nextId: nextId.value })
-    }).then(() => { localStorage.removeItem('dt_events_dirty'); notifyPushComplete(true) })
-      .catch(() => notifyPushComplete(false))
+    }).then(() => {
+      _pushInFlight = false
+      if (_lastDirtyTime <= pushStart) {
+        _dirty = false
+        localStorage.removeItem('dt_events_dirty')
+      }
+      notifyPushComplete(true)
+      if (_dirty) _pushNow()
+    }).catch(() => {
+      _pushInFlight = false
+      notifyPushComplete(false)
+    })
   }
 
   // Flush pending push on page unload (prevents data loss on refresh)
@@ -74,13 +88,14 @@ export const useEventStore = defineStore('events', () => {
 
   async function syncFromServer() {
     // Don't overwrite local changes that haven't been pushed yet
-    if (_dirty) return false
+    if (_dirty || _pushInFlight) return false
     try {
       const resp = await authFetch('/api/events')
       if (!resp.ok) return false
-      // Re-check after await: user may have edited while fetch was in-flight
-      if (_dirty) return false
+      if (_dirty || _pushInFlight) return false
       const data = await resp.json()
+      // Final check before overwriting: user may have edited while resp.json() was parsing
+      if (_dirty || _pushInFlight) return false
       if (data.events?.length > 0) {
         events.value = data.events
         nextId.value = data.nextId || data.events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1

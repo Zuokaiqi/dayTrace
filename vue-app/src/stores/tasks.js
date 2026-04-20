@@ -19,6 +19,10 @@ export const useTaskStore = defineStore('tasks', () => {
   let _goalsSyncTimer = null
   let _tasksDirty = false
   let _goalsDirty = false
+  let _tasksPushInFlight = false
+  let _goalsPushInFlight = false
+  let _tasksLastDirtyTime = 0
+  let _goalsLastDirtyTime = 0
 
   // ═══ Tasks (frozen view) persistence ═══
   function loadTasks() {
@@ -35,29 +39,45 @@ export const useTaskStore = defineStore('tasks', () => {
     localStorage.setItem('dt_tasks', JSON.stringify(tasks.value))
     localStorage.setItem('dt_tnid', taskNextId.value)
     _tasksDirty = true
+    _tasksLastDirtyTime = Date.now()
     localStorage.setItem('dt_tasks_dirty', '1')
     const { notifyDirty } = useSync()
     notifyDirty()
     clearTimeout(_taskSyncTimer)
-    _taskSyncTimer = setTimeout(() => {
-      _tasksDirty = false
-      const { notifyPushStart, notifyPushComplete } = useSync()
-      notifyPushStart()
-      authFetch('/api/tasks', {
-        method: 'POST',
-        body: JSON.stringify({ tasks: tasks.value, taskNextId: taskNextId.value })
-      }).then(() => { localStorage.removeItem('dt_tasks_dirty'); notifyPushComplete(true) })
-        .catch(() => notifyPushComplete(false))
-    }, 500)
+    _taskSyncTimer = setTimeout(_pushTasksNow, 500)
+  }
+
+  function _pushTasksNow() {
+    if (_tasksPushInFlight || !_tasksDirty) return
+    _tasksPushInFlight = true
+    const pushStart = Date.now()
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    authFetch('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ tasks: tasks.value, taskNextId: taskNextId.value })
+    }).then(() => {
+      _tasksPushInFlight = false
+      if (_tasksLastDirtyTime <= pushStart) {
+        _tasksDirty = false
+        localStorage.removeItem('dt_tasks_dirty')
+      }
+      notifyPushComplete(true)
+      if (_tasksDirty) _pushTasksNow()
+    }).catch(() => {
+      _tasksPushInFlight = false
+      notifyPushComplete(false)
+    })
   }
 
   async function syncTasksFromServer() {
-    if (_tasksDirty) return false
+    if (_tasksDirty || _tasksPushInFlight) return false
     try {
       const resp = await authFetch('/api/tasks')
       if (!resp.ok) return false
-      if (_tasksDirty) return false
+      if (_tasksDirty || _tasksPushInFlight) return false
       const data = await resp.json()
+      if (_tasksDirty || _tasksPushInFlight) return false
       if (data.tasks?.length > 0) {
         tasks.value = data.tasks
         taskNextId.value = data.taskNextId || data.tasks.reduce((m, t) => Math.max(m, t.id || 0), 0) + 1
@@ -92,27 +112,50 @@ export const useTaskStore = defineStore('tasks', () => {
     }
     localStorage.setItem('dt_goals', JSON.stringify(data))
     _goalsDirty = true
+    _goalsLastDirtyTime = Date.now()
     localStorage.setItem('dt_goals_dirty', '1')
     const { notifyDirty } = useSync()
     notifyDirty()
     clearTimeout(_goalsSyncTimer)
-    _goalsSyncTimer = setTimeout(() => {
-      _goalsDirty = false
-      const { notifyPushStart, notifyPushComplete } = useSync()
-      notifyPushStart()
-      authFetch('/api/goals', { method: 'POST', body: JSON.stringify(data) })
-        .then(() => { localStorage.removeItem('dt_goals_dirty'); notifyPushComplete(true) })
-        .catch(() => notifyPushComplete(false))
-    }, 600)
+    _goalsSyncTimer = setTimeout(_pushGoalsNow, 600)
+  }
+
+  function _pushGoalsNow() {
+    if (_goalsPushInFlight || !_goalsDirty) return
+    _goalsPushInFlight = true
+    const pushStart = Date.now()
+    const { notifyPushStart, notifyPushComplete } = useSync()
+    notifyPushStart()
+    const data = {
+      monthlyGoals: monthlyGoals.value,
+      weeklyTasks: weeklyTasks.value,
+      mNextId: mNextId.value,
+      wNextId: wNextId.value
+    }
+    authFetch('/api/goals', { method: 'POST', body: JSON.stringify(data) })
+      .then(() => {
+        _goalsPushInFlight = false
+        if (_goalsLastDirtyTime <= pushStart) {
+          _goalsDirty = false
+          localStorage.removeItem('dt_goals_dirty')
+        }
+        notifyPushComplete(true)
+        if (_goalsDirty) _pushGoalsNow()
+      })
+      .catch(() => {
+        _goalsPushInFlight = false
+        notifyPushComplete(false)
+      })
   }
 
   async function syncGoalsFromServer() {
-    if (_goalsDirty) return false
+    if (_goalsDirty || _goalsPushInFlight) return false
     try {
       const resp = await authFetch('/api/goals')
       if (!resp.ok) return false
-      if (_goalsDirty) return false
+      if (_goalsDirty || _goalsPushInFlight) return false
       const d = await resp.json()
+      if (_goalsDirty || _goalsPushInFlight) return false
       if (d.monthlyGoals) monthlyGoals.value = d.monthlyGoals
       if (d.weeklyTasks) weeklyTasks.value = d.weeklyTasks
       if (d.mNextId) mNextId.value = d.mNextId
@@ -268,29 +311,11 @@ export const useTaskStore = defineStore('tasks', () => {
   // Recover from interrupted push (e.g., page refresh during debounce window)
   if (localStorage.getItem('dt_tasks_dirty')) {
     _tasksDirty = true
-    const { notifyPushStart, notifyPushComplete } = useSync()
-    notifyPushStart()
-    _tasksDirty = false
-    localStorage.removeItem('dt_tasks_dirty')
-    authFetch('/api/tasks', {
-      method: 'POST',
-      body: JSON.stringify({ tasks: tasks.value, taskNextId: taskNextId.value })
-    }).then(() => notifyPushComplete(true))
-      .catch(() => notifyPushComplete(false))
+    _pushTasksNow()
   }
   if (localStorage.getItem('dt_goals_dirty')) {
     _goalsDirty = true
-    const { notifyPushStart, notifyPushComplete } = useSync()
-    notifyPushStart()
-    _goalsDirty = false
-    localStorage.removeItem('dt_goals_dirty')
-    const data = {
-      monthlyGoals: monthlyGoals.value, weeklyTasks: weeklyTasks.value,
-      mNextId: mNextId.value, wNextId: wNextId.value
-    }
-    authFetch('/api/goals', { method: 'POST', body: JSON.stringify(data) })
-      .then(() => notifyPushComplete(true))
-      .catch(() => notifyPushComplete(false))
+    _pushGoalsNow()
   }
 
   return {
