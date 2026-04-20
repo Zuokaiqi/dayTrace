@@ -43,7 +43,7 @@ export const useTaskStore = defineStore('tasks', () => {
         method: 'POST',
         data: { tasks: tasks.value, taskNextId: taskNextId.value }
       }).then(() => { uni.removeStorageSync('dt_tasks_dirty'); notifyPushComplete(true) })
-        .catch(() => notifyPushComplete(false))
+        .catch(() => { _tasksDirty = true; notifyPushComplete(false) })
     }, 500)
   }
 
@@ -97,7 +97,7 @@ export const useTaskStore = defineStore('tasks', () => {
       notifyPushStart()
       authFetch('/api/goals', { method: 'POST', data })
         .then(() => { uni.removeStorageSync('dt_goals_dirty'); notifyPushComplete(true) })
-        .catch(() => notifyPushComplete(false))
+        .catch(() => { _goalsDirty = true; notifyPushComplete(false) })
     }, 600)
   }
 
@@ -251,26 +251,24 @@ export const useTaskStore = defineStore('tasks', () => {
   loadGoals()
 
   if (uni.getStorageSync('dt_tasks_dirty')) {
-    _tasksDirty = true
     const { notifyPushStart, notifyPushComplete } = useSync()
     notifyPushStart()
     _tasksDirty = false
-    uni.removeStorageSync('dt_tasks_dirty')
     authFetch('/api/tasks', {
       method: 'POST',
       data: { tasks: tasks.value, taskNextId: taskNextId.value }
-    }).then(() => notifyPushComplete(true)).catch(() => notifyPushComplete(false))
+    }).then(() => { uni.removeStorageSync('dt_tasks_dirty'); notifyPushComplete(true) })
+      .catch(() => { _tasksDirty = true; notifyPushComplete(false) })
   }
 
   if (uni.getStorageSync('dt_goals_dirty')) {
     const data = { monthlyGoals: monthlyGoals.value, weeklyTasks: weeklyTasks.value, mNextId: mNextId.value, wNextId: wNextId.value }
-    _goalsDirty = true
     const { notifyPushStart, notifyPushComplete } = useSync()
     notifyPushStart()
     _goalsDirty = false
-    uni.removeStorageSync('dt_goals_dirty')
     authFetch('/api/goals', { method: 'POST', data })
-      .then(() => notifyPushComplete(true)).catch(() => notifyPushComplete(false))
+      .then(() => { uni.removeStorageSync('dt_goals_dirty'); notifyPushComplete(true) })
+      .catch(() => { _goalsDirty = true; notifyPushComplete(false) })
   }
 
   return {

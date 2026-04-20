@@ -47,7 +47,10 @@ export const useEventStore = defineStore('events', () => {
     }).then(() => {
       uni.removeStorageSync('dt_events_dirty')
       notifyPushComplete(true)
-    }).catch(() => notifyPushComplete(false))
+    }).catch(() => {
+      _dirty = true
+      notifyPushComplete(false)
+    })
   }
 
   async function syncFromServer(): Promise<boolean> {

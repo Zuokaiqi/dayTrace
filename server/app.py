@@ -258,6 +258,9 @@ UNI_H5_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uni-
 
 @app.route('/m/')
 def serve_uni_index():
+    idx = os.path.join(UNI_H5_DIR, 'index.html')
+    if not os.path.isfile(idx):
+        return ('<h1>移动端未构建</h1><p>请在服务端运行 <code>cd uni-app && npm run build:h5</code></p>', 503)
     return send_from_directory(UNI_H5_DIR, 'index.html')
 
 @app.route('/m/<path:path>')
@@ -1218,6 +1221,39 @@ def _truncate_history(history, max_tokens=4000):
     return first_pair + kept
 
 
+def _tool_call_result(name: str, args: dict) -> dict:
+    result = {"success": True}
+    if name == "addEvent":
+        result["message"] = f"已创建事件「{args.get('title','')}」{args.get('date','')} {args.get('start','')}-{args.get('end','')}"
+    elif name == "updateEvent":
+        parts = []
+        if args.get('title'): parts.append(f"标题→{args['title']}")
+        if args.get('start') or args.get('end'): parts.append(f"时间→{args.get('start','?')}-{args.get('end','?')}")
+        if args.get('date'): parts.append(f"日期→{args['date']}")
+        result["message"] = f"已修改事件 id={args.get('eventId','')} {'，'.join(parts)}"
+    elif name == "deleteEvent":
+        result["message"] = f"已删除事件 id={args.get('eventId','')}"
+    elif name == "batchAddEvents":
+        evts = args.get('events', [])
+        titles = '、'.join(e.get('title','') for e in evts[:5])
+        result["message"] = f"已批量创建 {len(evts)} 个事件：{titles}"
+    elif name == "addTask":
+        dl = f" 截止{args.get('deadline','')}" if args.get('deadline') else ''
+        result["message"] = f"已创建任务「{args.get('title','')}」{dl}"
+    elif name == "updateTask":
+        parts = []
+        if args.get('title'): parts.append(f"标题→{args['title']}")
+        if args.get('deadline') is not None: parts.append(f"截止→{args['deadline'] or '无'}")
+        if args.get('done') is not None: parts.append('标记完成' if args['done'] else '取消完成')
+        result["message"] = f"已修改任务 id={args.get('taskId','')} {'，'.join(parts)}"
+    elif name == "deleteTask":
+        result["message"] = f"已删除任务 id={args.get('taskId','')}"
+    elif name == "toggleTask":
+        done = args.get('done', True)
+        result["message"] = f"已{'完成' if done else '取消完成'}任务 id={args.get('taskId','')}"
+    return result
+
+
 @app.route('/api/ai/chat/stream', methods=['POST'])
 @require_auth
 def ai_chat_stream():
@@ -1311,36 +1347,7 @@ def ai_chat_stream():
                             tc_args = json.loads(tc["arguments"])
                         except Exception:
                             tc_args = {}
-                        result = {"success": True}
-                        name = tc["name"]
-                        if name == "addEvent":
-                            result["message"] = f"已创建事件「{tc_args.get('title','')}」{tc_args.get('date','')} {tc_args.get('start','')}-{tc_args.get('end','')}"
-                        elif name == "updateEvent":
-                            parts = []
-                            if tc_args.get('title'): parts.append(f"标题→{tc_args['title']}")
-                            if tc_args.get('start') or tc_args.get('end'): parts.append(f"时间→{tc_args.get('start','?')}-{tc_args.get('end','?')}")
-                            if tc_args.get('date'): parts.append(f"日期→{tc_args['date']}")
-                            result["message"] = f"已修改事件 id={tc_args.get('eventId','')} {'，'.join(parts)}"
-                        elif name == "deleteEvent":
-                            result["message"] = f"已删除事件 id={tc_args.get('eventId','')}"
-                        elif name == "batchAddEvents":
-                            evts = tc_args.get('events', [])
-                            titles = '、'.join(e.get('title','') for e in evts[:5])
-                            result["message"] = f"已批量创建 {len(evts)} 个事件：{titles}"
-                        elif name == "addTask":
-                            dl = f" 截止{tc_args.get('deadline','')}" if tc_args.get('deadline') else ''
-                            result["message"] = f"已创建任务「{tc_args.get('title','')}」{dl}"
-                        elif name == "updateTask":
-                            parts = []
-                            if tc_args.get('title'): parts.append(f"标题→{tc_args['title']}")
-                            if tc_args.get('deadline') is not None: parts.append(f"截止→{tc_args['deadline'] or '无'}")
-                            if tc_args.get('done') is not None: parts.append('标记完成' if tc_args['done'] else '取消完成')
-                            result["message"] = f"已修改任务 id={tc_args.get('taskId','')} {'，'.join(parts)}"
-                        elif name == "deleteTask":
-                            result["message"] = f"已删除任务 id={tc_args.get('taskId','')}"
-                        elif name == "toggleTask":
-                            done = tc_args.get('done', True)
-                            result["message"] = f"已{'完成' if done else '取消完成'}任务 id={tc_args.get('taskId','')}"
+                        result = _tool_call_result(tc["name"], tc_args)
                         tool_messages.append({
                             "role": "tool",
                             "tool_call_id": tc["id"],
@@ -1369,6 +1376,79 @@ def ai_chat_stream():
         content_type='text/event-stream',
         headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
     )
+
+
+@app.route('/api/ai/chat', methods=['POST'])
+@require_auth
+def ai_chat():
+    if not ark_client:
+        return jsonify({'error': '未配置 AI 服务，请设置 ARK_API_KEY 和 ARK_MODEL 环境变量'}), 503
+
+    data = request.get_json()
+    if not data or 'message' not in data:
+        return jsonify({'error': '缺少 message 字段'}), 400
+
+    user_msg = data['message']
+    context = data.get('context', {})
+    history = data.get('history', [])
+
+    system_prompt = build_system_prompt(context)
+    messages = [{"role": "system", "content": system_prompt}]
+    history = _truncate_history(history, max_tokens=4000)
+    for m in history:
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": user_msg})
+
+    try:
+        response = ark_client.chat.completions.create(
+            model=ARK_MODEL,
+            messages=messages,
+            tools=AI_TOOLS,
+            stream=False
+        )
+        msg = response.choices[0].message
+        full_content = msg.content or ""
+        actions = []
+
+        if msg.tool_calls:
+            for tc in msg.tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments)
+                except json.JSONDecodeError:
+                    args = {}
+                actions.append({"type": tc.function.name, "params": args})
+
+            if not full_content.strip():
+                tool_messages = list(messages)
+                tool_messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                    } for tc in msg.tool_calls]
+                })
+                for tc in msg.tool_calls:
+                    try:
+                        tc_args = json.loads(tc.function.arguments)
+                    except Exception:
+                        tc_args = {}
+                    tool_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": json.dumps(_tool_call_result(tc.function.name, tc_args), ensure_ascii=False)
+                    })
+                followup = ark_client.chat.completions.create(
+                    model=ARK_MODEL, messages=tool_messages, stream=False
+                )
+                full_content = followup.choices[0].message.content or ""
+
+        return jsonify({"text": full_content, "actions": actions})
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'AI 服务暂时不可用，请稍后重试'}), 500
 
 
 if __name__ == '__main__':
