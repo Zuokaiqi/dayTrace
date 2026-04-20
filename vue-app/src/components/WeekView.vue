@@ -427,10 +427,10 @@ function bindEvEl(comp, evId) {
     const el = comp.$el
     if (!el || el._bound) return
     el._bound = true
-    dragMoveHandler.setup(el, evId, getEvData)
-    // Resize: determine col type from the event
     const ev = getEvData(evId)
     const col = ev?.actual ? 'actual' : 'plan'
+    dragMoveHandler.setup(el, evId, getEvData, col)
+    // Resize: determine col type from the event
     setupResize(el, evId, getEvData, col, (evData, c, newEnd) => {
       undoStore.pushUndo()
       const viewDate = getViewDateForEl(el)

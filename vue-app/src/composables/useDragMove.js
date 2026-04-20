@@ -10,7 +10,7 @@ export function createDragMoveHandler(getGridY, opts = {}) {
   // opts.hideAllPreviews: () => void
   // opts.onComplete: (evData, newStart, newEnd, targetCol) => void
 
-  function setup(el, evId, getEvData) {
+  function setup(el, evId, getEvData, sourceCol = null) {
     let moveActive = false, startLocalY = 0, origTop = 0, moved = false
     let moveTimer = null, startX = 0
     let lastSnapMin = null, lastTarget = null
@@ -24,7 +24,9 @@ export function createDragMoveHandler(getGridY, opts = {}) {
 
       const evData = getEvData(evId)
       if (!evData) return
-      const timeData = evData.actual || evData.plan
+      const timeData = sourceCol === 'plan' ? evData.plan
+        : sourceCol === 'actual' ? evData.actual
+        : (evData.actual || evData.plan)
       if (!timeData) return
       const duration = t2m(timeData.end) - t2m(timeData.start)
       const evH = el.offsetHeight
@@ -81,7 +83,7 @@ export function createDragMoveHandler(getGridY, opts = {}) {
         const newEnd = Math.min(newStart + duration, EH * 60)
         if (newStart < SH * 60 || newEnd > EH * 60 || newStart >= newEnd) return
 
-        opts.onComplete?.(evData, newStart, newEnd, lastTarget, el)
+        opts.onComplete?.(evData, newStart, newEnd, lastTarget, el, sourceCol)
       }
 
       document.addEventListener('mousemove', mv)

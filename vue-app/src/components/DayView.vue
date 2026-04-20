@@ -352,27 +352,48 @@ const dragMoveHandler = createDragMoveHandler(getGridY, {
   getTargetCol,
   hideAllPreviews,
   getPreview,
-  onComplete(evData, newStart, newEnd, targetCol) {
+  onComplete(evData, newStart, newEnd, targetCol, _srcEl, sourceCol) {
     undoStore.pushUndo()
     const timeObj = { start: m2t(newStart), end: m2t(newEnd) }
-    // Repeat instance on non-origin date: fork instead of modifying original
+    // Repeat instance on non-origin date
     if (isRepeatOnView(evData)) {
-      const origCol = evData.plan ? 'plan' : null
-      const overrides = {}
-      if (targetCol === 'actual' || (!targetCol && origCol !== 'plan')) {
-        overrides.actual = { ...timeObj, note: '' }
-      } else {
-        overrides.plan = { ...timeObj }
+      // Plan → Actual: add an independent execution record, keep the repeat untouched
+      if (sourceCol === 'plan' && targetCol === 'actual') {
+        eventStore.addEvent({
+          title: evData.title,
+          tag: evData.tag,
+          date: dk.value,
+          repeat: null,
+          plan: null,
+          actual: { ...timeObj, note: '' },
+          linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : []
+        })
+        return
       }
-      eventStore.forkInstance(evData.id, dk.value, overrides)
+      // Adjusting the plan time for this specific occurrence: fork
+      eventStore.forkInstance(evData.id, dk.value, { plan: { ...timeObj } })
       return
     }
-    const origCol = evData.actual ? 'actual' : (evData.plan ? 'plan' : null)
+    // Plan → Actual: create an independent execution record so the same plan
+    // can be dragged to actual multiple times without overwriting prior ones
+    if (sourceCol === 'plan' && targetCol === 'actual') {
+      eventStore.addEvent({
+        title: evData.title,
+        tag: evData.tag,
+        date: evData.date,
+        repeat: null,
+        plan: null,
+        actual: { ...timeObj, note: '' },
+        linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : []
+      })
+      return
+    }
+    const origCol = sourceCol || (evData.actual ? 'actual' : (evData.plan ? 'plan' : null))
     if (targetCol && targetCol !== origCol) {
       if (origCol === 'plan' && targetCol === 'actual') evData.actual = { ...timeObj, note: '' }
       else if (origCol === 'actual' && targetCol === 'plan') evData.plan = { ...timeObj }
     } else {
-      const data = evData.actual || evData.plan
+      const data = origCol === 'plan' ? evData.plan : evData.actual
       if (data) { data.start = timeObj.start; data.end = timeObj.end }
     }
     eventStore.save()
@@ -387,7 +408,7 @@ function bindEvEl(comp, evId, col) {
     if (!el || el._bound) return
     el._bound = true
     // Drag-move
-    dragMoveHandler.setup(el, evId, getEvData)
+    dragMoveHandler.setup(el, evId, getEvData, col)
     // Resize
     setupResize(el, evId, getEvData, col, (evData, c, newEnd) => {
       undoStore.pushUndo()
