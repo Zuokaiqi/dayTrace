@@ -50,8 +50,8 @@ const cells = computed(() => {
     const dayEvs = eventStore.eventsForDate(d).filter(e => e.actual)
     const evs = dayEvs.map(ev => {
       let cls = 'actual-ev'
-      if (!ev.plan) cls = 'unplanned-ev'
-      else if (devM(ev.plan, ev.actual) > 10) cls = 'delayed-ev'
+      if (!ev.plan && !ev.sourcePlanId) cls = 'unplanned-ev'
+      else if (ev.plan && devM(ev.plan, ev.actual) > 10) cls = 'delayed-ev'
       return { id: ev.id, title: ev.title, cls }
     })
     result.push({ date: d, key: dateKey(d), num: d.getDate(), isOther, isToday, evs })

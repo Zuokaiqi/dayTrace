@@ -44,7 +44,8 @@ export function getEvClass(ev, col) {
   // Week view: determine from event data
   const isPlanOnly = !ev.actual
   if (isPlanOnly) return 'plan-only-ev'
-  if (!ev.plan) return 'unplanned-ev'
+  if (!ev.plan && !ev.sourcePlanId) return 'unplanned-ev'
+  if (!ev.plan) return 'actual-ev'
   const dv = t2m(ev.actual.start) - t2m(ev.plan.start)
   if (dv > 10) return 'delayed-ev'
   if (dv < -5) return 'early-ev'

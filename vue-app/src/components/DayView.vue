@@ -366,7 +366,8 @@ const dragMoveHandler = createDragMoveHandler(getGridY, {
           repeat: null,
           plan: null,
           actual: { ...timeObj, note: '' },
-          linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : []
+          linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : [],
+          sourcePlanId: evData.id
         })
         return
       }
@@ -384,7 +385,8 @@ const dragMoveHandler = createDragMoveHandler(getGridY, {
         repeat: null,
         plan: null,
         actual: { ...timeObj, note: '' },
-        linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : []
+        linkedTaskIds: evData.linkedTaskIds ? [...evData.linkedTaskIds] : [],
+        sourcePlanId: evData.id
       })
       return
     }

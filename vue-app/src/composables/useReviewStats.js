@@ -8,7 +8,7 @@ import { t2m, dateKey, datesInRange, SH, EH, TAG_COLORS, TAG_NAMES } from '../ut
 export function computeDayStats(dayEvents) {
   const planned = dayEvents.filter(e => e.plan)
   const withA = dayEvents.filter(e => e.plan && e.actual)
-  const unp = dayEvents.filter(e => !e.plan && e.actual)
+  const unp = dayEvents.filter(e => !e.plan && !e.sourcePlanId && e.actual)
 
   const devMFn = (p, a) => t2m(a.start) - t2m(p.start)
 

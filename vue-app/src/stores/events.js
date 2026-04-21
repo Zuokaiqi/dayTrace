@@ -101,6 +101,7 @@ export const useEventStore = defineStore('events', () => {
         nextId.value = data.nextId || data.events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1
         localStorage.setItem('dt_events', JSON.stringify(events.value))
         localStorage.setItem('dt_nid', nextId.value)
+        migrateSourcePlanIds()
         return true
       }
     } catch {}
@@ -200,8 +201,29 @@ export const useEventStore = defineStore('events', () => {
     return addEvent(forked)
   }
 
+  // Backfill sourcePlanId for legacy actual-only events that came from plan drag
+  // before the field was introduced. Match by title + same/repeating plan on that date.
+  function migrateSourcePlanIds() {
+    let changed = false
+    events.value.forEach(e => {
+      if (!e.actual || e.plan || e.sourcePlanId) return
+      const planEv = events.value.find(p => {
+        if (p.id === e.id || !p.plan || p.title !== e.title) return false
+        if (p.date === e.date) return true
+        if (p.repeat) return matchesRepeat(p, new Date(e.date + 'T00:00:00'), e.date)
+        return false
+      })
+      if (planEv) { e.sourcePlanId = planEv.id; changed = true }
+    })
+    if (changed) {
+      localStorage.setItem('dt_events', JSON.stringify(events.value))
+      _syncToServer()
+    }
+  }
+
   // Init
   load()
+  migrateSourcePlanIds()
   // Recover from interrupted push (e.g., page refresh during debounce window)
   if (localStorage.getItem('dt_events_dirty')) {
     _dirty = true

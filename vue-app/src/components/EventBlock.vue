@@ -55,7 +55,8 @@ const evClass = computed(() => {
   const ev = props.ev
   if (props.col === 'plan') return 'plan-ev'
   if (!ev.actual) return 'plan-only-ev'
-  if (!ev.plan) return 'unplanned-ev'
+  if (!ev.plan && !ev.sourcePlanId) return 'unplanned-ev'
+  if (!ev.plan) return 'actual-ev'
   const dv = devM(ev.plan, ev.actual)
   if (dv > 10) return 'delayed-ev'
   if (dv < -5) return 'early-ev'
@@ -65,7 +66,8 @@ const evClass = computed(() => {
 const badge = computed(() => {
   if (props.col !== 'actual' || !props.ev.actual) return null
   const ev = props.ev
-  if (!ev.plan) return { cls: 'badge-unplanned', text: '临时' }
+  if (!ev.plan && !ev.sourcePlanId) return { cls: 'badge-unplanned', text: '临时' }
+  if (!ev.plan) return null
   const dv = devM(ev.plan, ev.actual)
   if (dv > 10) return { cls: 'badge-late', text: `+${dv}'` }
   if (dv < -5) return { cls: 'badge-ok', text: `${dv}'` }
