@@ -202,9 +202,10 @@ export const useEventStore = defineStore('events', () => {
   }
 
   // Backfill sourcePlanId for legacy actual-only events that came from plan drag
-  // before the field was introduced. Match by title + same/repeating plan on that date.
+  // before the field was introduced. Pure in-memory tagging only — never pushes
+  // to the server. Without this guarantee, a stale local cache would overwrite
+  // fresher server data on app start (the /api/events POST is DELETE + INSERT).
   function migrateSourcePlanIds() {
-    let changed = false
     events.value.forEach(e => {
       if (!e.actual || e.plan || e.sourcePlanId) return
       const planEv = events.value.find(p => {
@@ -213,12 +214,8 @@ export const useEventStore = defineStore('events', () => {
         if (p.repeat) return matchesRepeat(p, new Date(e.date + 'T00:00:00'), e.date)
         return false
       })
-      if (planEv) { e.sourcePlanId = planEv.id; changed = true }
+      if (planEv) e.sourcePlanId = planEv.id
     })
-    if (changed) {
-      localStorage.setItem('dt_events', JSON.stringify(events.value))
-      _syncToServer()
-    }
   }
 
   // Init
