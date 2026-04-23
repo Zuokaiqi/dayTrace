@@ -23,6 +23,9 @@ export const useTaskStore = defineStore('tasks', () => {
   let _goalsPushInFlight = false
   let _tasksLastDirtyTime = 0
   let _goalsLastDirtyTime = 0
+  // Startup guard: block push until first pullFromServer runs.
+  let _tasksInitPhase = false
+  let _goalsInitPhase = false
 
   // ═══ Tasks (frozen view) persistence ═══
   function loadTasks() {
@@ -48,6 +51,7 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   function _pushTasksNow() {
+    if (_tasksInitPhase) return
     if (_tasksPushInFlight || !_tasksDirty) return
     _tasksPushInFlight = true
     const pushStart = Date.now()
@@ -71,21 +75,28 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function syncTasksFromServer() {
-    if (_tasksDirty || _tasksPushInFlight) return false
+    if (_tasksDirty || _tasksPushInFlight) { _tasksInitPhase = false; if (_tasksDirty) _pushTasksNow(); return false }
     try {
       const resp = await authFetch('/api/tasks')
-      if (!resp.ok) return false
-      if (_tasksDirty || _tasksPushInFlight) return false
+      if (!resp.ok) { _tasksInitPhase = false; if (_tasksDirty) _pushTasksNow(); return false }
+      if (_tasksDirty || _tasksPushInFlight) { _tasksInitPhase = false; if (_tasksDirty) _pushTasksNow(); return false }
       const data = await resp.json()
-      if (_tasksDirty || _tasksPushInFlight) return false
+      if (_tasksDirty || _tasksPushInFlight) { _tasksInitPhase = false; if (_tasksDirty) _pushTasksNow(); return false }
       if (data.tasks?.length > 0) {
         tasks.value = data.tasks
         taskNextId.value = data.taskNextId || data.tasks.reduce((m, t) => Math.max(m, t.id || 0), 0) + 1
         localStorage.setItem('dt_tasks', JSON.stringify(tasks.value))
         localStorage.setItem('dt_tnid', taskNextId.value)
+        _tasksDirty = false
+        localStorage.removeItem('dt_tasks_dirty')
+        _tasksInitPhase = false
         return true
       }
+      _tasksInitPhase = false
+      if (_tasksDirty) _pushTasksNow()
     } catch {}
+    _tasksInitPhase = false
+    if (_tasksDirty) _pushTasksNow()
     return false
   }
 
@@ -121,6 +132,7 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   function _pushGoalsNow() {
+    if (_goalsInitPhase) return
     if (_goalsPushInFlight || !_goalsDirty) return
     _goalsPushInFlight = true
     const pushStart = Date.now()
@@ -149,13 +161,13 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function syncGoalsFromServer() {
-    if (_goalsDirty || _goalsPushInFlight) return false
+    if (_goalsDirty || _goalsPushInFlight) { _goalsInitPhase = false; if (_goalsDirty) _pushGoalsNow(); return false }
     try {
       const resp = await authFetch('/api/goals')
-      if (!resp.ok) return false
-      if (_goalsDirty || _goalsPushInFlight) return false
+      if (!resp.ok) { _goalsInitPhase = false; if (_goalsDirty) _pushGoalsNow(); return false }
+      if (_goalsDirty || _goalsPushInFlight) { _goalsInitPhase = false; if (_goalsDirty) _pushGoalsNow(); return false }
       const d = await resp.json()
-      if (_goalsDirty || _goalsPushInFlight) return false
+      if (_goalsDirty || _goalsPushInFlight) { _goalsInitPhase = false; if (_goalsDirty) _pushGoalsNow(); return false }
       if (d.monthlyGoals) monthlyGoals.value = d.monthlyGoals
       if (d.weeklyTasks) weeklyTasks.value = d.weeklyTasks
       if (d.mNextId) mNextId.value = d.mNextId
@@ -166,8 +178,13 @@ export const useTaskStore = defineStore('tasks', () => {
         mNextId: mNextId.value,
         wNextId: wNextId.value
       }))
+      _goalsDirty = false
+      localStorage.removeItem('dt_goals_dirty')
+      _goalsInitPhase = false
       return true
     } catch {}
+    _goalsInitPhase = false
+    if (_goalsDirty) _pushGoalsNow()
     return false
   }
 
@@ -308,14 +325,14 @@ export const useTaskStore = defineStore('tasks', () => {
   // Init
   loadTasks()
   loadGoals()
-  // Recover from interrupted push (e.g., page refresh during debounce window)
+  // Defer replay of stale dirty flags until first pullFromServer attempts to sync.
   if (localStorage.getItem('dt_tasks_dirty')) {
     _tasksDirty = true
-    _pushTasksNow()
+    _tasksInitPhase = true
   }
   if (localStorage.getItem('dt_goals_dirty')) {
     _goalsDirty = true
-    _pushGoalsNow()
+    _goalsInitPhase = true
   }
 
   return {

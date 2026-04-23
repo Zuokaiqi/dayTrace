@@ -16,6 +16,10 @@ export const useTaskStore = defineStore('tasks', () => {
   let _goalsSyncTimer: ReturnType<typeof setTimeout> | null = null
   let _tasksDirty = false
   let _goalsDirty = false
+  // Startup guard: hold push until first pullFromServer completes so stale
+  // local cache can't overwrite newer server data on app start.
+  let _tasksInitPhase = false
+  let _goalsInitPhase = false
 
   function loadTasks() {
     try {
@@ -36,6 +40,7 @@ export const useTaskStore = defineStore('tasks', () => {
     notifyDirty()
     if (_taskSyncTimer) clearTimeout(_taskSyncTimer)
     _taskSyncTimer = setTimeout(() => {
+      if (_tasksInitPhase) return
       _tasksDirty = false
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
@@ -48,20 +53,28 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function syncTasksFromServer(): Promise<boolean> {
-    if (_tasksDirty) return false
+    if (_tasksDirty) { _tasksInitPhase = false; if (_tasksDirty) saveTasks(); return false }
     try {
       const resp = await authFetch('/api/tasks')
-      if (!resp.ok) return false
-      if (_tasksDirty) return false
+      if (!resp.ok) { _tasksInitPhase = false; if (_tasksDirty) saveTasks(); return false }
+      if (_tasksDirty) { _tasksInitPhase = false; if (_tasksDirty) saveTasks(); return false }
       const data = await resp.json()
       if (data.tasks?.length > 0) {
         tasks.value = data.tasks
         taskNextId.value = data.taskNextId || data.tasks.reduce((m: number, t: any) => Math.max(m, t.id || 0), 0) + 1
         uni.setStorageSync('dt_tasks', JSON.stringify(tasks.value))
         uni.setStorageSync('dt_tnid', String(taskNextId.value))
+        _tasksDirty = false
+        uni.removeStorageSync('dt_tasks_dirty')
+        _tasksInitPhase = false
         return true
       }
+      _tasksInitPhase = false
+      if (_tasksDirty) saveTasks()
+      return false
     } catch {}
+    _tasksInitPhase = false
+    if (_tasksDirty) saveTasks()
     return false
   }
 
@@ -92,6 +105,7 @@ export const useTaskStore = defineStore('tasks', () => {
     notifyDirty()
     if (_goalsSyncTimer) clearTimeout(_goalsSyncTimer)
     _goalsSyncTimer = setTimeout(() => {
+      if (_goalsInitPhase) return
       _goalsDirty = false
       const { notifyPushStart, notifyPushComplete } = useSync()
       notifyPushStart()
@@ -102,11 +116,11 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function syncGoalsFromServer(): Promise<boolean> {
-    if (_goalsDirty) return false
+    if (_goalsDirty) { _goalsInitPhase = false; if (_goalsDirty) saveGoals(); return false }
     try {
       const resp = await authFetch('/api/goals')
-      if (!resp.ok) return false
-      if (_goalsDirty) return false
+      if (!resp.ok) { _goalsInitPhase = false; if (_goalsDirty) saveGoals(); return false }
+      if (_goalsDirty) { _goalsInitPhase = false; if (_goalsDirty) saveGoals(); return false }
       const d = await resp.json()
       if (d.monthlyGoals) monthlyGoals.value = d.monthlyGoals
       if (d.weeklyTasks) weeklyTasks.value = d.weeklyTasks
@@ -116,8 +130,13 @@ export const useTaskStore = defineStore('tasks', () => {
         monthlyGoals: monthlyGoals.value, weeklyTasks: weeklyTasks.value,
         mNextId: mNextId.value, wNextId: wNextId.value
       }))
+      _goalsDirty = false
+      uni.removeStorageSync('dt_goals_dirty')
+      _goalsInitPhase = false
       return true
     } catch {}
+    _goalsInitPhase = false
+    if (_goalsDirty) saveGoals()
     return false
   }
 
@@ -250,25 +269,16 @@ export const useTaskStore = defineStore('tasks', () => {
   loadTasks()
   loadGoals()
 
+  // Defer replay of stale dirty flags until the first pullFromServer runs.
+  // A successful pull clears the dirty flag; a failed pull keeps it so a later
+  // user action can retry the push with merged data.
   if (uni.getStorageSync('dt_tasks_dirty')) {
-    const { notifyPushStart, notifyPushComplete } = useSync()
-    notifyPushStart()
-    _tasksDirty = false
-    authFetch('/api/tasks', {
-      method: 'POST',
-      data: { tasks: tasks.value, taskNextId: taskNextId.value }
-    }).then(() => { uni.removeStorageSync('dt_tasks_dirty'); notifyPushComplete(true) })
-      .catch(() => { _tasksDirty = true; notifyPushComplete(false) })
+    _tasksDirty = true
+    _tasksInitPhase = true
   }
-
   if (uni.getStorageSync('dt_goals_dirty')) {
-    const data = { monthlyGoals: monthlyGoals.value, weeklyTasks: weeklyTasks.value, mNextId: mNextId.value, wNextId: wNextId.value }
-    const { notifyPushStart, notifyPushComplete } = useSync()
-    notifyPushStart()
-    _goalsDirty = false
-    authFetch('/api/goals', { method: 'POST', data })
-      .then(() => { uni.removeStorageSync('dt_goals_dirty'); notifyPushComplete(true) })
-      .catch(() => { _goalsDirty = true; notifyPushComplete(false) })
+    _goalsDirty = true
+    _goalsInitPhase = true
   }
 
   return {

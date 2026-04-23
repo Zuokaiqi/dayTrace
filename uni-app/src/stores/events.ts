@@ -10,6 +10,11 @@ export const useEventStore = defineStore('events', () => {
 
   let _syncTimer: ReturnType<typeof setTimeout> | null = null
   let _dirty = false
+  // Startup guard: block push until the first pullFromServer has a chance to run.
+  // Without this, a stale dt_events_dirty flag combined with empty/outdated local
+  // storage (fresh install, cleared cache, cross-device) would push-overwrite
+  // the server's newer data on app start.
+  let _initPhase = false
 
   function load() {
     try {
@@ -37,6 +42,7 @@ export const useEventStore = defineStore('events', () => {
   }
 
   function _pushNow() {
+    if (_initPhase) return
     if (!_dirty) return
     _dirty = false
     const { notifyPushStart, notifyPushComplete } = useSync()
@@ -54,20 +60,29 @@ export const useEventStore = defineStore('events', () => {
   }
 
   async function syncFromServer(): Promise<boolean> {
-    if (_dirty) return false
+    if (_dirty) { _initPhase = false; if (_dirty) save(); return false }
     try {
       const resp = await authFetch('/api/events')
-      if (!resp.ok) return false
-      if (_dirty) return false
+      if (!resp.ok) { _initPhase = false; if (_dirty) save(); return false }
+      if (_dirty) { _initPhase = false; if (_dirty) save(); return false }
       const data = await resp.json()
       if (data.events?.length > 0) {
         events.value = data.events
         nextId.value = data.nextId || data.events.reduce((m: number, e: any) => Math.max(m, e.id || 0), 0) + 1
         uni.setStorageSync('dt_events', JSON.stringify(events.value))
         uni.setStorageSync('dt_nid', String(nextId.value))
+        // Pull succeeded → any stale init-phase dirty is superseded by fresh server data
+        _dirty = false
+        uni.removeStorageSync('dt_events_dirty')
+        _initPhase = false
         return true
       }
+      _initPhase = false
+      if (_dirty) save()
+      return false
     } catch {}
+    _initPhase = false
+    if (_dirty) save()
     return false
   }
 
@@ -156,7 +171,9 @@ export const useEventStore = defineStore('events', () => {
   load()
   if (uni.getStorageSync('dt_events_dirty')) {
     _dirty = true
-    _pushNow()
+    // Guard: hold push until first pullFromServer attempt completes, so stale
+    // local data can't overwrite the server before we've tried to sync.
+    _initPhase = true
   }
 
   return {

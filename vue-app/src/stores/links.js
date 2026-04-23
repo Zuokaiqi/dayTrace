@@ -12,6 +12,8 @@ export const useLinkStore = defineStore('links', () => {
   let _dirty = false
   let _pushInFlight = false
   let _lastDirtyTime = 0
+  // Startup guard: block push until first pullFromServer runs.
+  let _initPhase = false
 
   function load() {
     try {
@@ -65,6 +67,7 @@ export const useLinkStore = defineStore('links', () => {
   }
 
   function _pushNow() {
+    if (_initPhase) return
     if (_pushInFlight || !_dirty) return
     _pushInFlight = true
     const pushStart = Date.now()
@@ -87,13 +90,13 @@ export const useLinkStore = defineStore('links', () => {
   }
 
   async function syncFromServer() {
-    if (_dirty || _pushInFlight) return false
+    if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
     try {
       const resp = await authFetch('/api/links')
-      if (!resp.ok) return false
-      if (_dirty || _pushInFlight) return false
+      if (!resp.ok) { _initPhase = false; if (_dirty) _pushNow(); return false }
+      if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
       const d = await resp.json()
-      if (_dirty || _pushInFlight) return false
+      if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
       if (d.links?.length) {
         // Migrate old format
         links.value = d.links.map((l, i) => ({
@@ -115,9 +118,16 @@ export const useLinkStore = defineStore('links', () => {
         links.value.forEach(l => { if (l.group) set.add(l.group) })
         groups.value = [...set]
         saveGroups()
+        _dirty = false
+        localStorage.removeItem('dt_links_dirty')
+        _initPhase = false
         return true
       }
+      _initPhase = false
+      if (_dirty) _pushNow()
     } catch {}
+    _initPhase = false
+    if (_dirty) _pushNow()
     return false
   }
 
@@ -189,10 +199,10 @@ export const useLinkStore = defineStore('links', () => {
   }
 
   load()
-  // Recover from interrupted push
+  // Defer replay of stale dirty flag until first pullFromServer attempts to sync.
   if (localStorage.getItem('dt_links_dirty')) {
     _dirty = true
-    _pushNow()
+    _initPhase = true
   }
 
   return {

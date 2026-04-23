@@ -12,6 +12,10 @@ export const useEventStore = defineStore('events', () => {
   let _dirty = false
   let _pushInFlight = false
   let _lastDirtyTime = 0
+  // Startup guard: block push until first pullFromServer runs. Without this,
+  // a stale dt_events_dirty flag + empty/outdated localStorage (fresh device,
+  // cleared cache) would push-overwrite fresher server data on app start.
+  let _initPhase = false
 
   // ─── Local persistence ───
   function load() {
@@ -44,6 +48,7 @@ export const useEventStore = defineStore('events', () => {
   }
 
   function _pushNow() {
+    if (_initPhase) return
     if (_pushInFlight || !_dirty) return
     _pushInFlight = true
     const pushStart = Date.now()
@@ -88,23 +93,31 @@ export const useEventStore = defineStore('events', () => {
 
   async function syncFromServer() {
     // Don't overwrite local changes that haven't been pushed yet
-    if (_dirty || _pushInFlight) return false
+    if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
     try {
       const resp = await authFetch('/api/events')
-      if (!resp.ok) return false
-      if (_dirty || _pushInFlight) return false
+      if (!resp.ok) { _initPhase = false; if (_dirty) _pushNow(); return false }
+      if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
       const data = await resp.json()
       // Final check before overwriting: user may have edited while resp.json() was parsing
-      if (_dirty || _pushInFlight) return false
+      if (_dirty || _pushInFlight) { _initPhase = false; if (_dirty) _pushNow(); return false }
       if (data.events?.length > 0) {
         events.value = data.events
         nextId.value = data.nextId || data.events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1
         localStorage.setItem('dt_events', JSON.stringify(events.value))
         localStorage.setItem('dt_nid', nextId.value)
         migrateSourcePlanIds()
+        // Fresh server data supersedes any stale init-phase dirty flag
+        _dirty = false
+        localStorage.removeItem('dt_events_dirty')
+        _initPhase = false
         return true
       }
+      _initPhase = false
+      if (_dirty) _pushNow()
     } catch {}
+    _initPhase = false
+    if (_dirty) _pushNow()
     return false
   }
 
@@ -221,10 +234,11 @@ export const useEventStore = defineStore('events', () => {
   // Init
   load()
   migrateSourcePlanIds()
-  // Recover from interrupted push (e.g., page refresh during debounce window)
+  // Defer replay of stale dirty flag until first pullFromServer attempts to sync.
+  // Successful pull clears it; failed pull keeps it so a later user action can retry.
   if (localStorage.getItem('dt_events_dirty')) {
     _dirty = true
-    _pushNow()
+    _initPhase = true
   }
 
   return {
