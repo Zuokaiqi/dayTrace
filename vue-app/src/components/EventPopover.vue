@@ -58,6 +58,23 @@
             </div>
           </div>
         </div>
+        <!-- Reminder (only shown for plan column) -->
+        <div v-if="form.col === 'plan'" class="pop-row">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1a5.5 5.5 0 100 11A5.5 5.5 0 008 1zM8 12v2M6 14h4"/><circle cx="8" cy="6.5" r=".5" fill="currentColor"/><path d="M8 7.5v2.5"/></svg>
+          <div class="pop-reminder-picker" ref="reminderPickerRef">
+            <div class="pop-repeat-trigger" @click="reminderDropOpen = !reminderDropOpen">
+              <span class="pop-repeat-text">{{ reminderLabel }}</span>
+              <span class="pop-repeat-arrow" :class="{ open: reminderDropOpen }">▾</span>
+            </div>
+            <div v-if="reminderDropOpen" class="pop-repeat-dropdown">
+              <div v-for="opt in reminderOpts" :key="String(opt.value)"
+                :class="['pop-repeat-opt', { sel: form.reminder === opt.value }]"
+                @click="form.reminder = opt.value; reminderDropOpen = false">
+                {{ opt.label }}
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- Bind tasks -->
         <div class="pop-row">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3v10"/><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
@@ -140,6 +157,20 @@ const editCol = ref('plan')
 const editViewDate = ref('')  // the date the user was viewing when editing a repeat event
 const repeatDropOpen = ref(false)
 const repeatPickerRef = ref(null)
+const reminderDropOpen = ref(false)
+const reminderPickerRef = ref(null)
+const reminderOpts = [
+  { value: null, label: '不提醒' },
+  { value: 5, label: '5分钟前' },
+  { value: 10, label: '10分钟前' },
+  { value: 15, label: '15分钟前' },
+  { value: 30, label: '30分钟前' },
+  { value: 60, label: '1小时前' }
+]
+const reminderLabel = computed(() => {
+  const o = reminderOpts.find(x => x.value === form.reminder)
+  return o ? o.label : '不提醒'
+})
 const taskDropOpen = ref(false)
 const taskPickerRef = ref(null)
 const selectedTaskIds = ref([])
@@ -187,7 +218,8 @@ const form = reactive({
   tag: 'work',
   note: '',
   repeat: '',
-  date: ''
+  date: '',
+  reminder: null
 })
 
 const editEvHasActual = computed(() => {
@@ -206,6 +238,7 @@ function openCreate(colType, start, end, date, anchor) {
   form.tag = 'work'
   form.note = ''
   form.repeat = ''
+  form.reminder = null
   selectedTaskIds.value = []
   form.date = date || dateKey(new Date())
   isOpen.value = true
@@ -228,6 +261,7 @@ function openEdit(id, col, anchor, viewDate) {
   form.tag = ev.tag
   form.note = (col === 'actual' && data.note) ? data.note : ''
   form.repeat = ev.repeat || ''
+  form.reminder = ev.reminder ?? null
   selectedTaskIds.value = [...(ev.linkedTaskIds || [])]
   form.date = ev.date
   isOpen.value = true
@@ -253,7 +287,7 @@ function positionAt(anchor) {
   })
 }
 
-function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = ''; repeatDropOpen.value = false; taskDropOpen.value = false; hoverGroup.value = null }
+function close() { isOpen.value = false; repeatChoice.value = ''; deleteChoice.value = ''; repeatDropOpen.value = false; reminderDropOpen.value = false; taskDropOpen.value = false; hoverGroup.value = null }
 
 // When repeat is selected, force plan column (repeat events only exist in plan)
 function onRepeatChange() {
@@ -292,6 +326,7 @@ function handleSave() {
         // Fork: create standalone for this date only
         const forked = eventStore.forkInstance(editId.value, editViewDate.value, {
           title: form.title.trim(), tag: form.tag,
+          reminder: form.reminder,
           linkedTaskIds: [...selectedTaskIds.value],
           plan: { start: form.start, end: form.end }
         })
@@ -301,6 +336,7 @@ function handleSave() {
         ev.title = form.title.trim()
         ev.tag = form.tag
         ev.linkedTaskIds = [...selectedTaskIds.value]
+        ev.reminder = form.reminder
         ev.repeat = form.repeat || null
         if (ev.plan) {
           ev.plan.start = form.start
@@ -321,6 +357,7 @@ function handleSave() {
     ev.tag = form.tag
     ev.date = form.date
     ev.linkedTaskIds = [...selectedTaskIds.value]
+    ev.reminder = form.reminder
     ev.repeat = form.repeat || null
     if (form.col === 'plan') {
       if (!ev.plan) ev.plan = {}
@@ -343,6 +380,7 @@ function handleSave() {
       tag: form.tag,
       date: form.date,
       repeat: form.repeat || null,
+      reminder: form.reminder,
       linkedTaskIds: [...selectedTaskIds.value],
       plan: (form.col === 'plan' || hasRepeat) ? { start: form.start, end: form.end } : null,
       actual: (form.col === 'actual' && !hasRepeat) ? { start: form.start, end: form.end, note: form.note.trim() } : null
@@ -436,6 +474,7 @@ function onKeydown(e) {
 function onPopMousedown(e) {
   if (repeatPickerRef.value && !repeatPickerRef.value.contains(e.target)) repeatDropOpen.value = false
   if (taskPickerRef.value && !taskPickerRef.value.contains(e.target)) taskDropOpen.value = false
+  if (reminderPickerRef.value && !reminderPickerRef.value.contains(e.target)) reminderDropOpen.value = false
 }
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
@@ -449,6 +488,7 @@ defineExpose({ openCreate, openEdit, close })
   z-index: 199; background: transparent;
 }
 .pop-repeat-picker { position: relative; }
+.pop-reminder-picker { position: relative; flex: 1; }
 .pop-repeat-trigger {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 8px; border: 1px solid var(--border-light); border-radius: var(--radius);

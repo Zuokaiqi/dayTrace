@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { authFetch } from '../utils/api'
+import { apiUrl, authFetch } from '../utils/api'
 import { dateKey, t2m } from '../utils/time'
 import { useSync } from '../composables/useSync'
 
@@ -79,7 +79,7 @@ export const useEventStore = defineStore('events', () => {
         const token = localStorage.getItem('dt_token')
         const body = JSON.stringify({ events: events.value, nextId: nextId.value })
         try {
-          fetch('/api/events', {
+          fetch(apiUrl('/api/events'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
             body,

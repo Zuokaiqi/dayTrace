@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { authFetch, logout as doLogout } from '../utils/api'
+import { apiUrl, authFetch, logout as doLogout, resourceUrl } from '../utils/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const username = ref(localStorage.getItem('dt_username') || '')
@@ -14,10 +14,10 @@ export const useAuthStore = defineStore('auth', () => {
     const name = nickname.value || username.value || ''
     return name
   })
-  const avatarUrl = computed(() => avatar.value || '')
+  const avatarUrl = computed(() => resourceUrl(avatar.value) || '')
 
   async function login(user, pass) {
-    const resp = await fetch('/api/login', {
+    const resp = await fetch(apiUrl('/api/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass })
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function register(user, pass) {
-    const resp = await fetch('/api/register', {
+    const resp = await fetch(apiUrl('/api/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass })

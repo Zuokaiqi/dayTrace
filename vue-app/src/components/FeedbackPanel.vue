@@ -34,6 +34,7 @@
 </template>
 <script setup>
 import { ref } from 'vue'
+import { apiUrl } from '../utils/api'
 const open = ref(false)
 const content = ref('')
 const files = ref([])
@@ -70,7 +71,7 @@ async function submit() {
     fd.append('content', content.value.trim())
     files.value.forEach((f, i) => fd.append('image' + i, f))
     const token = localStorage.getItem('dt_token')
-    const resp = await fetch('/api/feedback', {
+    const resp = await fetch(apiUrl('/api/feedback'), {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + token },
       body: fd

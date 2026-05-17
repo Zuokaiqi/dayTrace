@@ -37,7 +37,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { authFetch } from '../utils/api'
+import { apiUrl, authFetch } from '../utils/api'
 import { showToast } from '../composables/useToast'
 
 const auth = useAuthStore()
@@ -72,7 +72,7 @@ async function onFileSelected(e) {
     const formData = new FormData()
     formData.append('file', file)
     const token = localStorage.getItem('dt_token')
-    const resp = await fetch('/api/avatar', {
+    const resp = await fetch(apiUrl('/api/avatar'), {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + token },
       body: formData
@@ -81,7 +81,7 @@ async function onFileSelected(e) {
     if (resp.ok && data.avatar) {
       auth.avatar = data.avatar
       localStorage.setItem('dt_avatar', data.avatar)
-      avatarPreview.value = data.avatar
+      avatarPreview.value = auth.avatarUrl
       showToast('头像已更新')
     } else {
       showToast(data.error || '上传失败')

@@ -4,6 +4,7 @@ import { useTaskStore } from '../stores/tasks'
 import { useUndoStore } from '../stores/undo'
 import { useUiStore } from '../stores/ui'
 import { dateKey } from '../utils/time'
+import { apiUrl } from '../utils/api'
 import { getTasksForDate } from './useDdlTodo'
 import { showToast } from './useToast'
 
@@ -458,7 +459,7 @@ export function useAiChat() {
 
     try {
       const token = localStorage.getItem('dt_token')
-      const resp = await fetch('/api/ai/chat/stream', {
+      const resp = await fetch(apiUrl('/api/ai/chat/stream'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -559,7 +560,7 @@ export function useAiChat() {
       ...(m._applied ? { _applied: true } : {})
     }))
     try {
-      const resp = await fetch('/api/ai/chats', {
+      const resp = await fetch(apiUrl('/api/ai/chats'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ id: chatId.value, title, messages: toSave })
@@ -575,7 +576,7 @@ export function useAiChat() {
     const token = localStorage.getItem('dt_token')
     if (!token) return
     try {
-      const resp = await fetch('/api/ai/chats', {
+      const resp = await fetch(apiUrl('/api/ai/chats'), {
         headers: { Authorization: 'Bearer ' + token }
       })
       const data = await resp.json()
@@ -589,7 +590,7 @@ export function useAiChat() {
     const token = localStorage.getItem('dt_token')
     if (!token) return
     try {
-      const resp = await fetch(`/api/ai/chats/${id}`, {
+      const resp = await fetch(apiUrl(`/api/ai/chats/${id}`), {
         headers: { Authorization: 'Bearer ' + token }
       })
       const data = await resp.json()

@@ -1,10 +1,12 @@
 const CACHE_NAME = 'daytrace-v2'
+const APP_SCOPE = new URL(self.registration.scope).pathname.replace(/\/$/, '')
+const APP_SHELL = self.registration.scope
 
 // Install: cache the app shell
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache =>
-      cache.addAll(['/'])
+      cache.addAll([APP_SHELL])
     )
   )
   self.skipWaiting()
@@ -25,7 +27,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
 
   // Never cache API requests
-  if (url.pathname.startsWith('/api/')) return
+  if (url.pathname.startsWith(`${APP_SCOPE}/api/`)) return
 
   // Navigation requests (HTML): network-first, fallback to cache
   if (e.request.mode === 'navigate') {
@@ -36,7 +38,7 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone))
           return resp
         })
-        .catch(() => caches.match('/'))
+        .catch(() => caches.match(APP_SHELL))
     )
     return
   }
